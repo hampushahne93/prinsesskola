@@ -16,7 +16,18 @@ Välj tjej eller kille och klä din 3D-figur i kungliga kläder. Dra med fingret
 - **Hudfärger:** 10
 - **Platser:** 10, bland annat slott, balsal, godisland och undervattnet
 
-Byt färger på kläder, hår och mantel. 🎲 klär figuren slumpmässigt, och **✨ Klar!** visar upp figuren med konfetti.
+Byt färger på kläder, hår och mantel. 🎲 klär figuren slumpmässigt.
+
+## Sagolandet
+
+Tryck på **🏰 Starta spelet** för att gå ut i Sagolandet med din figur. Där finns ett jättestort slott på en kulle, en by med hus, en bondgård med väderkvarn och en sjö med brygga. Djuren går omkring och säger hej när man kommer fram: hundar, katter, kossor, får, getter, hästar, enhörningar, kaniner, uttrar och fiskar.
+
+- **Gå:** W A S D eller piltangenterna
+- **Hoppa:** mellanslag
+- **Spring:** Shift
+- **Titta runt:** dra med musen
+- **Zooma:** mushjulet
+- **På surfplatta:** joystick och hoppknapp på skärmen, nyp för att zooma
 
 - Allt styrs med stora knappar och bilder, inget behöver läsas.
 - En svensk röst säger vad man har valt (använder enhetens inbyggda talsyntes).
