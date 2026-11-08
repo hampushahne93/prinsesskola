@@ -20,7 +20,15 @@ Byt färger på kläder, hår och mantel. 🎲 klär figuren slumpmässigt.
 
 ## Sagolandet
 
-Tryck på **🏰 Starta spelet** för att gå ut i Sagolandet med din figur. Där finns ett jättestort slott på en kulle, en by med hus, en bondgård med väderkvarn och en sjö med brygga. Djuren går omkring och säger hej när man kommer fram: hundar, katter, kossor, får, getter, hästar, enhörningar, kaniner, uttrar och fiskar.
+Tryck på **🏰 Starta spelet** för att gå ut i Sagolandet med din figur. Där finns en by med korsvirkeshus, en bondgård med väderkvarn och en sjö med brygga. Klicka på djuren så låter de: hundar, katter, kossor, får, getter, hästar, enhörningar, kaniner, uttrar och fiskar.
+
+Uppe på kullen ligger ett jättestort stenslott med ringmur, borggård och torn. Man kan gå in i slottet:
+
+- **Entréhallen, matsalen, balsalen, köket, tronsalen och sovrummet**, alla möblerade
+- **En korridor med 6 låsta rum**, med en symbol på varje dörr
+- **Fängelsehålan** med 5 låsta celler
+
+Grafiken har solskuggor, en himmel med moln, tätt gräs som vajar i vinden och efterbehandling av bilden. Knappen ⚙️ växlar mellan Hög, Mellan och Låg grafik.
 
 - **Gå:** W A S D eller piltangenterna
 - **Hoppa:** mellanslag
