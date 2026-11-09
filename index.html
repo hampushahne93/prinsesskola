@@ -66,6 +66,10 @@
   .item:active{transform:scale(.92)}
   .item.on{border-color:var(--gold);box-shadow:0 0 0 3px #fff3b0,0 4px 0 var(--gold-d),0 0 18px rgba(255,200,40,.7)}
   .item.on::after{content:'⭐';position:absolute;top:2px;right:4px;font-size:18px}
+  .item.locked img{filter:grayscale(1) brightness(.8) blur(3px)}
+  .item .lock{position:absolute;inset:0;display:grid;place-items:center;font-size:34px;z-index:2;text-shadow:0 2px 6px rgba(80,20,120,.35)}
+  .item.new::before{content:'NY!';position:absolute;top:5px;left:5px;background:#ff4f9a;color:#fff;font-size:12px;font-weight:700;padding:2px 7px;border-radius:10px;z-index:3;box-shadow:0 2px 0 #c22d74}
+  .item.shake{animation:shake .45s}
   .item .none{position:absolute;inset:0;display:grid;place-items:center;font-size:40px;opacity:.55}
   .colors{flex:0 0 auto;display:flex;flex-wrap:wrap;justify-content:center;gap:8px;padding:4px 4px 6px}
   .colors::-webkit-scrollbar{display:none}
@@ -157,6 +161,19 @@
   .wbox .wcheck{position:absolute;top:3px;right:6px;font-size:calc(var(--bw)*.2);pointer-events:none}
   .wer{height:30px;width:30px;border:none;border-radius:50%;background:#f3e8ff;font-size:15px;cursor:pointer;box-shadow:0 2px 0 #d8c2f2;visibility:hidden}
   .wer.show{visibility:visible}
+  .qprog{display:flex;gap:3px;justify-content:center;flex-wrap:wrap;margin-top:5px;font-size:clamp(17px,3vw,25px);line-height:1}
+  .qprog span{filter:grayscale(1);opacity:.28;transition:opacity .3s}
+  .qprog span.on{filter:none;opacity:1;animation:pop .5s ease-out}
+  .rwcard{grid-template-areas:none;width:min(92vw,440px);gap:10px;padding:18px 18px 20px}
+  .rwcard>*{grid-area:auto}
+  .rwtop{font-size:clamp(24px,5vw,32px);font-weight:700;color:#d6337f}
+  .rwimgw{position:relative;width:min(68vw,270px,46vh);aspect-ratio:1;border-radius:30px;overflow:hidden;background:radial-gradient(circle at 50% 45%,#fffbe0 0%,#ffe08a 48%,#f6c2ff 100%);box-shadow:0 0 0 5px #fff,0 0 0 9px #ffd34d,0 10px 30px rgba(200,140,0,.45)}
+  .rwimgw img{position:relative;width:100%;height:100%;object-fit:contain;z-index:1}
+  .rwshine{position:absolute;inset:-50%;background:repeating-conic-gradient(from 0deg,rgba(255,255,255,.55) 0deg 10deg,rgba(255,255,255,0) 10deg 30deg);animation:spinr 9s linear infinite}
+  @keyframes spinr{to{transform:rotate(360deg)}}
+  .rwname{font-size:clamp(22px,4.6vw,30px);font-weight:700;color:#b07800;text-shadow:0 2px 0 #fff3c4}
+  .rwsub{font-size:17px;font-weight:600;color:#8a62b8}
+  .rwcard .pill{font-size:26px;height:62px;padding:0 34px}
   .quiz .confetti{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:40}
   .quiz .confetti span{font-size:30px}
   @media (max-height:560px) and (min-aspect-ratio:1/1){
@@ -203,7 +220,7 @@
         <div class="qcard" id="qcard">
           <button class="round qread" id="qread" aria-label="Läs frågan">🔊</button>
           <button class="round qx" id="qx" aria-label="Stäng">✖</button>
-          <div class="qtitle">💗 Hjärtdörren är låst! Räkna ut svaret</div>
+          <div class="qtitle">💗 Hjärtdörren: klara 10 tal så öppnas den!<div class="qprog" id="qprog"></div></div>
           <div class="qtask"><span id="qa">1</span><span>+</span><span id="qb">5</span><span>=</span><span class="qq" id="qans">?</span></div>
           <div class="qhelp" id="qhelp"></div>
           <div class="qpad"><canvas id="qcv"></canvas><div class="qph" id="qph">✏️ Rita svaret här</div></div>
@@ -213,10 +230,19 @@
         <div class="qcard wcard hidden" id="wcard">
           <button class="round qread" id="wread" aria-label="Läs lösenordet">🔊</button>
           <button class="round qx" id="wx" aria-label="Stäng">✖</button>
-          <div class="qtitle wtitle">⭐ Stjärndörren är låst! Skriv av lösenordet</div>
+          <div class="qtitle wtitle">⭐ Stjärndörren: skriv av 10 lösenord!<div class="qprog" id="wprog"></div></div>
           <div class="wcols" id="wcols"></div>
           <div class="qbtns"><button class="pill qclear" id="wclear">🧽 Sudda</button><button class="pill qok" id="wok">✅ Klar!</button></div>
           <div class="qmsg" id="wmsg"></div>
+        </div>
+      </div>
+      <div class="quiz hidden" id="reward">
+        <div class="qcard rwcard">
+          <div class="rwtop">🎁 Du har låst upp!</div>
+          <div class="rwimgw"><div class="rwshine"></div><img id="rwimg" alt=""></div>
+          <div class="rwname" id="rwname"></div>
+          <div class="rwsub">Den finns nu i klädskåpet 👗</div>
+          <button class="pill qok" id="rwok">✨ Hurra!</button>
         </div>
       </div>
       <div class="wload hidden" id="wload"><div class="loading">🏰</div>Bygger sagolandet…</div>
@@ -273,6 +299,9 @@ function MB(color,o={}){const k='b'+color+JSON.stringify(o);let m=MC.get(k);
   if(!m){m=new THREE.MeshBasicMaterial({color,...o});MC.set(k,m);}return m;}
 const DS = THREE.DoubleSide;
 const gold = () => MATMODE==='std'?M('#ffcf52',{metalness:.9,roughness:.28}):M(G,{emissive:'#7a5200',emissiveIntensity:.35});
+const goldGlow = () => MATMODE==='std'?M('#ffd34d',{metalness:.85,roughness:.16,emissive:'#ffa800',emissiveIntensity:.4}):M(G,{emissive:'#a06a00',emissiveIntensity:.55});
+let _halo=null;function haloTex(){if(_halo)return _halo;const c=document.createElement('canvas');c.width=c.height=128;const x=c.getContext('2d');const g=x.createRadialGradient(64,64,4,64,64,64);
+  g.addColorStop(0,'rgba(255,240,170,.95)');g.addColorStop(.35,'rgba(255,205,80,.45)');g.addColorStop(1,'rgba(255,190,60,0)');x.fillStyle=g;x.fillRect(0,0,128,128);_halo=new THREE.CanvasTexture(c);_halo.colorSpace=THREE.SRGBColorSpace;return _halo;}
 const goldDS = () => MATMODE==='std'?M('#ffcf52',{metalness:.9,roughness:.28,side:DS}):M(G,{emissive:'#7a5200',emissiveIntensity:.35,side:DS});
 const silver = () => MATMODE==='std'?M('#eef2ff',{metalness:.85,roughness:.22}):M('#e8eeff',{emissive:'#5a6a99',emissiveIntensity:.2});
 const gem = c => MATMODE==='std'?M(c,{emissive:c,emissiveIntensity:.25,roughness:.08,metalness:.2}):M(c,{emissive:c,emissiveIntensity:.35});
@@ -564,6 +593,21 @@ const FRONT=.385; // jackans framsida (z)
 function jacketZ(x,y){const r=.44+(.47-.44)*Math.min(1,Math.max(0,(y-1.48)/(2.55-1.48)));return .84*Math.sqrt(Math.max(0,r*r-x*x));}
 function onJacket(pts,r,m,off=.012){const c=new THREE.CatmullRomCurve3(pts.map(([x,y])=>V(x,y,jacketZ(x,y)+off)));return mk(new THREE.TubeGeometry(c,32,r,8),m);}
 
+/* Belöning från Stjärnrummet: guldig bröllopsklänning med släp och slöja */
+const GULDBRUD={id:'guldbrud',name:'Guldig bröllopsklänning',reward:'star',view:{t:[0,2.3,0],d:12.5,el:.9,rot:.55},build:(c,add)=>{
+  const std=MATMODE==='std',gf=std?M('#f2c14e',{metalness:.55,roughness:.3,side:DS}):M('#f9c843',{side:DS}),gl=std?M('#fff0b8',{metalness:.4,roughness:.3}):M('#fff1b0');
+  const pts=[[.38,1.72],[.62,1.5],[1.02,1.1],[1.38,.7],[1.6,.4],[1.64,.3]];
+  add(lathe(pts,gf,{pleat:[12,.07,1.6,.3]}));add(lathe(pts.map(([r,y])=>[r*1.04+.03,y-.02]),M('#fffaf0',{side:DS,transparent:true,opacity:.28}),{pleat:[16,.06,1.6,.3]}));
+  for(const [r,y] of[[1.67,.32],[1.43,.66],[1.12,1.0]]){add(ring(V(0,y,0),V(0,1,0),r,.055,gl));}
+  for(let i=0;i<26;i++){const a=i/26*PI*2;add(sph(.05,M('#fffdf5'),[1.7*Math.sin(a),.36,1.7*Math.cos(a)],null,8));}
+  add(lathe([[.5,1.62],[1.1,.9],[2.0,.12],[2.75,.05]],gf,{ps:PI*.62,pl:PI*.76,pleat:[14,.05,1.4,.1]}));
+  onSkirt(pts,46,77,i=>mk(new THREE.OctahedronGeometry(.045),M(i%3?'#ffffff':'#fff2b0',{emissive:'#ffffff',emissiveIntensity:.6})),-PI,PI,.4,1.6,.1).forEach(add);
+  add(bodice('#f6cf62'));add(ring(V(0,2.44,0),V(0,1,0),.43,.045,M('#ffffff')));add(ring(V(0,1.72,0),V(0,1,0),.41,.05,gold()));
+  for(let i=0;i<9;i++){const a=(i-4)*.17;add(sph(.04,M('#fffdf5'),[.44*Math.sin(a),2.3-Math.abs(i-4)*.035,.37*Math.cos(a)],null,8));}
+  add(mk(heartGeo(.11,.05),gem('#ffffff'),[0,1.74,.35]));for(const sx of[-1,1])add(sph(.24,M('#fffaf0',{transparent:true,opacity:.55}),[.47*sx,2.42,0],[1,.9,1]));
+  add(lathe([[.8,4.62],[1.14,4.05],[1.22,3.3],[1.27,2.5],[1.45,1.3],[1.9,.08]],M('#ffffff',{side:DS,transparent:true,opacity:.3}),{ps:PI*.6,pl:PI*.8}));
+  for(let i=0;i<9;i++){const a=PI*(.68+i*.08);add(sph(.06,M('#fffdf5'),[.86*Math.sin(a),4.6,.86*Math.cos(a)],null,8));}
+  bow('#ffe08a',add,[0,1.76,-.42],1.8);}};
 const OUTFITS={girl:[
   {id:'prinsess',name:'Prinsessklänning',build:(c,add)=>{const d=shade(c,-.15),l=shade(c,.45);
     const pts=[[.38,1.72],[.5,1.55],[.72,1.2],[.93,.85],[1.08,.58],[1.12,.45]];
@@ -627,6 +671,7 @@ const OUTFITS={girl:[
     onSkirt(pts,32,51,i=>mk(new THREE.OctahedronGeometry(.035),M(i%2?'#ffffff':l,{emissive:'#ffffff',emissiveIntensity:.5})),-PI,PI,.5,1.6,.1).forEach(add);
     add(bodice(shade(c,-.15)));for(const sx of[-1,1])add(sph(.22,M('#ffffff',{transparent:true,opacity:.45}),[.47*sx,2.42,0]));
     add(ring(V(0,1.72,0),V(0,1,0),.41,.045,silver()));add(mk(new THREE.OctahedronGeometry(.08),gem('#7cc4ff'),[0,1.74,.44],null,[.8,1.2,.5]));}},
+  GULDBRUD,
 ],boy:[
   {id:'prins',name:'Prinsdräkt',build:(c,add)=>{const sash=(c==='#ff5b6e'||c==='#ff9f4a')?'#ffffff':'#e8344e';
     pants('#f4f1ff',add);longSleeves(c,add);jacket(c,add);
@@ -686,6 +731,7 @@ const OUTFITS={girl:[
     add(mk(new THREE.TorusGeometry(.5,.12,8,32),M('#ffffff'),[0,2.55,0],[PI/2,0,0],[1,.85,.35]));
     add(ring(V(0,1.6,0),V(0,1,0),.49,.05,M('#7a4a2a')));add(mk(new THREE.BoxGeometry(.14,.14,.04),gold(),[0,1.6,FRONT+.07]));
     add(limb(V(-.32,2.42,FRONT+.07),V(.32,1.64,FRONT+.07),.04,gold()));}},
+  GULDBRUD,
 ]};
 const ALL_OUT=[...OUTFITS.girl,...OUTFITS.boy];
 
@@ -784,6 +830,14 @@ const ACCS=[
     for(const s of[-1,1]){g.add(sph(.065,b,[.13*s,.45,0]));g.add(sph(.035,l,[.13*s,.45,.04]));g.add(sph(.025,M('#2d2140'),[.06*s,.36,.15],null,8));g.add(sph(.07,b,[.2*s,.05,.06]));g.add(sph(.08,b,[.11*s,-.2,.08]));}
     g.add(sph(.03,M('#2d2140'),[0,.31,.21],null,8));g.add(mk(new THREE.TorusGeometry(.13,.03,8,20),M('#ff7fbf'),[0,.18,0],[PI/2,0,0]));
     g.position.set(HX+.1,1.66,.24);g.rotation.y=-.3;add(g);}},
+  {id:'guldhjarta',name:'Guldiga hjärttrollspöt',reward:'heart',view:{t:[1.25,2.85,.3],d:7.4,el:.35,rot:-.45},build:(add,refs)=>{const gG=goldGlow(),a=V(HX,1.25,.1),b=V(1.58,3.2,.3);
+    add(limb(a,b,.06,gG));add(limb(V(HX-.01,1.16,.1),V(HX+.07,1.6,.15),.085,M('#ff8fc8')));for(let i=0;i<7;i++){const p=a.clone().lerp(b,.3+i*.1);add(sph(.06,gem('#ff4f9a'),[p.x,p.y,p.z],null,10));}
+    add(ring(b,V(.38,1,.08),.11,.035,gG));
+    const hg=new THREE.Group();hg.position.set(1.66,3.78,.3);hg.add(mk(heartGeo(.62,.2),gG,[0,0,-.1]));
+    for(const sd of[1,-1]){const h=mk(heartGeo(.4,.06),gem('#ff3d8b'),[0,.04,.1*sd]);if(sd<0)h.rotation.y=PI;hg.add(h);hg.add(sph(.08,MB('#ffffff'),[-.16,.24,.17*sd],null,8));}
+    hg.add(mk(starGeo(.16,.08),gG,[0,.62,-.04]));const halo=new THREE.Sprite(new THREE.SpriteMaterial({map:haloTex(),blending:THREE.AdditiveBlending,depthWrite:false,transparent:true,opacity:.85}));halo.scale.set(2.3,2.3,1);halo.userData.keep=true;hg.add(halo);
+    refs.spin.push(hg);add(hg);
+    [[2.4,4.3,.3],[1.0,4.45,.35],[2.45,3.2,.3],[.9,3.15,.32],[1.7,4.75,.3],[2.1,2.6,.36],[1.25,4.7,.3],[2.6,3.85,.3]].forEach(([x,y,z],i)=>{const st=mk(starGeo(.08+(i%3)*.035,.025),new THREE.MeshBasicMaterial({color:'#fff6c8'}),[x,y,z]);refs.glow.push(st);add(st);});}},
 ];
 
 /* ======================================================================
@@ -1015,7 +1069,10 @@ const DEFAULTS={
   boy:{gender:'boy',skin:'#f5c6a0',hairStyle:'kort',hairColor:'#7a4a2a',outfit:'prins',outfitColor:'#4a5fe0',crown:'guld',cape:'kort',capeColor:'#c8203f',shoes:'roda',necklace:'none',acc:'spira',bg:'slott'}
 };
 let S=null,curTab='outfit',muted=false;
-function load(g){try{const j=localStorage.getItem('kk3d-'+g);if(j)return Object.assign({},DEFAULTS[g],JSON.parse(j));}catch(e){}return {...DEFAULTS[g]};}
+const UNLOCK={heart:false,star:false},NEWUNL=new Set();
+const isLocked=it=>!!(it&&it.reward&&!UNLOCK[it.reward]);
+function fixLocked(st){if(isLocked(byId(ACCS,st.acc)))st.acc=DEFAULTS[st.gender].acc;if(isLocked(byId(ALL_OUT,st.outfit)))st.outfit=DEFAULTS[st.gender].outfit;return st;}
+function load(g){try{const j=localStorage.getItem('kk3d-'+g);if(j)return fixLocked(Object.assign({},DEFAULTS[g],JSON.parse(j)));}catch(e){}return {...DEFAULTS[g]};}
 function save(){try{localStorage.setItem('kk3d-'+S.gender,JSON.stringify(S));}catch(e){}}
 
 /* ======================================================================
@@ -1051,7 +1108,7 @@ function drawTabs(){$('#tabs').innerHTML=TABS.map(t=>`<button class="tab ${t.k==
 function stateKey(st){const {bg,...rest}=st;return JSON.stringify(rest);}
 function drawItems(){
   const t=TABS.find(x=>x.k===curTab);const list=t.items();const job=++thumbJob;
-  $('#items').innerHTML=list.map(it=>`<button class="item ${S[t.k]===it.id?'on':''}" data-id="${it.id}"><div class="ph">✨</div>${it.id==='none'?'<div class="none">✖️</div>':''}</button>`).join('');
+  $('#items').innerHTML=list.map(it=>`<button class="item ${S[t.k]===it.id?'on':''} ${isLocked(it)?'locked':''} ${NEWUNL.has(it.id)?'new':''}" data-id="${it.id}"><div class="ph">✨</div>${it.id==='none'?'<div class="none">✖️</div>':''}${isLocked(it)?'<div class="lock">🔒</div>':''}</button>`).join('');
   const cw=$('#colors');
   if(t.color){cw.classList.remove('hidden');cw.innerHTML=t.pal.map(([c,n])=>`<button class="col ${S[t.color]===c?'on':''}" data-c="${c}" data-n="${n}" style="background:${c}" aria-label="${n}"></button>`).join('');}
   else{cw.classList.add('hidden');cw.innerHTML='';}
@@ -1079,13 +1136,14 @@ function dragScroll(el){let down=false,sx=0,sy=0,sl=0,stp=0,moved=false;
 $('#tabs').addEventListener('click',e=>{const b=e.target.closest('.tab');if(!b)return;curTab=b.dataset.k;drawTabs();drawItems();$('#items').scrollTop=0;chime('tab');say(TABS.find(t=>t.k===curTab).name);
   if(curTab==='cape')spinTo(PI*.85);else if(['shoes','necklace','crown','acc','skin','outfit'].includes(curTab))spinTo(0);});
 $('#items').addEventListener('click',e=>{const b=e.target.closest('.item');if(!b)return;const t=TABS.find(x=>x.k===curTab);
-  const it=t.items().find(x=>x.id===b.dataset.id);S[t.k]=it.id;changed(t.k!=='bg');drawItems();say(it.name||'Så fint!');});
+  const it=t.items().find(x=>x.id===b.dataset.id);if(isLocked(it)){b.classList.remove('shake');void b.offsetWidth;b.classList.add('shake');say('Den är låst! Lås upp den i slottet.');return;}
+  NEWUNL.delete(it.id);S[t.k]=it.id;changed(t.k!=='bg');drawItems();say(it.name||'Så fint!');});
 $('#colors').addEventListener('click',e=>{const b=e.target.closest('.col');if(!b)return;const t=TABS.find(x=>x.k===curTab);
   S[t.color]=b.dataset.c;changed();drawItems();say(b.dataset.n);});
 const pick=list=>list[Math.floor(Math.random()*list.length)];
 $('#magic').addEventListener('click',()=>{
-  S.outfit=pick(OUTFITS[S.gender]).id;S.outfitColor=pick(DRESS)[0];S.crown=pick(CROWNS.slice(1)).id;S.hairStyle=pick(HAIRS).id;S.hairColor=pick(HAIRP)[0];
-  S.cape=pick(CAPES).id;S.capeColor=pick(CAPEP)[0];S.shoes=pick(SHOES).id;S.necklace=pick(NECKS).id;S.acc=pick(ACCS).id;S.bg=pick(BGS).id;
+  const free=l=>l.filter(x=>!isLocked(x));S.outfit=pick(free(OUTFITS[S.gender])).id;S.outfitColor=pick(DRESS)[0];S.crown=pick(CROWNS.slice(1)).id;S.hairStyle=pick(HAIRS).id;S.hairColor=pick(HAIRP)[0];
+  S.cape=pick(CAPES).id;S.capeColor=pick(CAPEP)[0];S.shoes=pick(SHOES).id;S.necklace=pick(NECKS).id;S.acc=pick(free(ACCS)).id;S.bg=pick(BGS).id;
   changed();drawItems();doSpin();say('Simsalabim!');});
 $('#sound').addEventListener('click',()=>{muted=!muted;$('#sound').textContent=muted?'🔇':'🔊';try{if(muted)speechSynthesis.cancel();}catch(e){}if(!muted)chime();});
 $('#home').addEventListener('click',()=>{showStart();chime('tab');});
@@ -1927,7 +1985,7 @@ vec3 transformed=vec3(gp.x+p.x,hm.r+p.y-.03,gp.y+p.z);vTint=rnd.z;`);
 /* ---------------- styrning ---------------- */
 const keys=new Set();const KEYS=['arrowup','arrowdown','arrowleft','arrowright',' ','w','a','s','d','q','e','shift'];
 const CODES=['KeyW','KeyA','KeyS','KeyD','KeyQ','KeyE','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space','ShiftLeft','ShiftRight'];
-window.addEventListener('keydown',e=>{if(mode!=='world')return;if(W.quizOpen){if(e.code==='Escape')closeQuiz();else if(W.quizOpen==='word')wKey(e);else if(e.code==='Enter')qCheck();return;}if(CODES.includes(e.code)){e.preventDefault();if(!e.repeat&&e.code==='Space')jump();keys.add(e.code);hideHint();}},true);
+window.addEventListener('keydown',e=>{if(mode!=='world')return;if(W.rewardOpen){if(['Enter','Escape','Space'].includes(e.code))closeReward();return;}if(W.quizOpen){if(e.code==='Escape')closeQuiz();else if(W.quizOpen==='word')wKey(e);else if(e.code==='Enter')qCheck();return;}if(CODES.includes(e.code)){e.preventDefault();if(!e.repeat&&e.code==='Space')jump();keys.add(e.code);hideHint();}},true);
 window.addEventListener('keyup',e=>{if(CODES.includes(e.code)){keys.delete(e.code);if(mode==='world')e.preventDefault();}},true);
 const clearKeys=()=>{keys.clear();};window.addEventListener('blur',clearKeys);document.addEventListener('visibilitychange',clearKeys);window.addEventListener('pagehide',clearKeys);
 document.addEventListener('contextmenu',e=>{e.preventDefault();});
@@ -2025,11 +2083,12 @@ function digRead(strokes,ans){const want=String(ans).split('').map(Number);
   return {ok,read,conf,groups:nat.length};}
 
 /* ---------------- räknedörren ---------------- */
-function openDoors(){try{return JSON.parse(localStorage.getItem('kk3d-open')||'[]');}catch(e){return [];}}
+/* dörrarna är låsta igen varje gång spelet startas om (inget sparas) */
+function openDoors(){return [];}
+try{localStorage.removeItem('kk3d-open');}catch(e){}
 function openDoor(n,anim){const D=W.doors[n];if(!D||D.target)return;D.target=1;if(!anim){D.open=1;D.lock.visible=false;}else D.lockT=0;
   const i=SEGS.indexOf(D.segC);if(i>=0)SEGS.splice(i,1);const j=INWALLS.indexOf(D.iwC);if(j>=0)INWALLS.splice(j,1);SEGS.push(D.segO);W.locks=W.locks.filter(L=>L!==D.L);
-  const o=openDoors();if(!o.includes(n)){o.push(n);try{localStorage.setItem('kk3d-open',JSON.stringify(o));}catch(e){}}
-  if(anim){unlockSound();const em=['💗','⭐'][n];setTimeout(()=>{showToast(['Hjärtdörren','Stjärndörren'][n]+' är öppen!');lockBubble({x:D.x+1.6,y:H0()+9,z:D.z},em+' Öppen! '+em);},700);}}
+  if(anim){unlockSound();const em=['💗','⭐'][n];setTimeout(()=>{showToast(['Hjärtdörren','Stjärndörren'][n]+' är öppen!');lockBubble({x:D.x+1.6,y:H0()+9,z:D.z},em+' Öppen! '+em);},700);setTimeout(()=>showReward(n),1800);}}
 const H0=()=>terrainH(C.x,C.z);
 function unlockSound(){if(!audioReady())return;const m=ac.createGain();m.gain.value=.8;m.connect(ac.destination);
   for(let i=0;i<2;i++)noise({dest:m,at:i*.12,dur:.08,f:2600+i*500,q:5,vol:.6});voice({dest:m,at:.25,dur:.25,vol:.2,type:'square',f:[[0,1200],[1,1500]],lp:[[0,3000],[1,2000]]});
@@ -2040,7 +2099,10 @@ function oopsSound(){if(!audioReady())return;const m=ac.createGain();m.gain.valu
 function chestSound(){if(!audioReady())return;const m=ac.createGain();m.gain.value=.7;m.connect(ac.destination);
   for(let i=0;i<7;i++)voice({dest:m,at:i*.07,dur:.35,vol:.11,type:'triangle',f:[[0,1300+((i*5)%7)*180],[1,1300+((i*5)%7)*180]]});}
 
-const QZ={a:1,b:5,strokes:[],cur:null,pid:null,tries:0,busy:false};
+const QZ={a:1,b:5,strokes:[],cur:null,pid:null,tries:0,busy:false,done:0};
+function prog(sel,ic,n){$(sel).innerHTML=Array.from({length:10},(_,i)=>`<span class="${i<n?'on':''}">${ic}</span>`).join('');}
+function qNew(){let a=1,b=1;for(let k=0;k<20;k++){a=1+Math.floor(Math.random()*9);b=1+Math.floor(Math.random()*9);if(a!==QZ.a||b!==QZ.b)break;}
+  Object.assign(QZ,{a,b,tries:0,strokes:[],cur:null,pid:null,busy:false});$('#qa').textContent=a;$('#qb').textContent=b;$('#qans').textContent='?';qHelp();qMsg('','');qRedraw();prog('#qprog','💗',QZ.done);}
 const qcv=$('#qcv'),qctx=qcv.getContext('2d');
 function qResize(){const r=qcv.getBoundingClientRect(),d=Math.min(2,window.devicePixelRatio||1);qcv.width=Math.max(1,Math.round(r.width*d));qcv.height=Math.max(1,Math.round(r.height*d));qRedraw();}
 function qRedraw(){const r=qcv.getBoundingClientRect(),d=qcv.width/(r.width||1);qctx.setTransform(1,0,0,1,0,0);qctx.clearRect(0,0,qcv.width,qcv.height);qctx.setTransform(d,0,0,d,0,0);
@@ -2056,18 +2118,19 @@ const qEnd=e=>{if(e.pointerId!==QZ.pid)return;QZ.pid=null;QZ.cur=null;};
 qcv.addEventListener('pointerup',qEnd);qcv.addEventListener('pointercancel',qEnd);qcv.addEventListener('lostpointercapture',qEnd);
 function qHelp(){const h=$('#qhelp');h.innerHTML=`<div class="qgrp">${'<span>💗</span>'.repeat(QZ.a)}</div><b>+</b><div class="qgrp">${'<span>💜</span>'.repeat(QZ.b)}</div>`;h.classList.remove('pulse');}
 function qAsk(){say(`Vad blir ${QZ.a} plus ${QZ.b}? Rita svaret!`);}
-function openQuiz(n=0){if(W.quizOpen)return;if(n===1){openWordQuiz();return;}W.quizOpen='math';$('#qcard').classList.remove('hidden');$('#wcard').classList.add('hidden');keys.clear();joy.x=joy.y=0;QZ.a=1+Math.floor(Math.random()*9);QZ.b=1+Math.floor(Math.random()*9);QZ.tries=0;QZ.strokes=[];QZ.cur=null;QZ.pid=null;QZ.busy=false;
-  $('#qa').textContent=QZ.a;$('#qb').textContent=QZ.b;$('#qans').textContent='?';qHelp();qMsg('','');$('#quiz').classList.remove('hidden');requestAnimationFrame(qResize);chime('tab');setTimeout(qAsk,250);}
+function openQuiz(n=0){if(W.quizOpen)return;if(n===1){openWordQuiz();return;}W.quizOpen='math';$('#qcard').classList.remove('hidden');$('#wcard').classList.add('hidden');keys.clear();joy.x=joy.y=0;qNew();
+  $('#quiz').classList.remove('hidden');requestAnimationFrame(qResize);chime('tab');setTimeout(qAsk,250);}
 function closeQuiz(){W.quizOpen=false;$('#quiz').classList.add('hidden');QZ.pid=null;QZ.cur=null;WQ.boxes.forEach(b=>{b.pid=null;b.cur=null;});try{speechSynthesis.cancel();}catch(e){}}
-function qConfetti(){const c=document.createElement('div');c.className='confetti';const E=['💗','✨','⭐','🎉','💜','🌟'];
-  for(let i=0;i<34;i++){const s=document.createElement('span');s.textContent=E[i%E.length];s.style.left=(Math.random()*100)+'%';s.style.animationDuration=(1.6+Math.random()*1.4)+'s';s.style.animationDelay=(Math.random()*.4)+'s';c.appendChild(s);}
-  $('#quiz').appendChild(c);setTimeout(()=>c.remove(),3500);}
+function qConfetti(n=34,par='#quiz'){const c=document.createElement('div');c.className='confetti';const E=['💗','✨','⭐','🎉','💜','🌟'];
+  for(let i=0;i<n;i++){const s=document.createElement('span');s.textContent=E[i%E.length];s.style.left=(Math.random()*100)+'%';s.style.animationDuration=(1.6+Math.random()*1.4)+'s';s.style.animationDelay=(Math.random()*.4)+'s';c.appendChild(s);}
+  $(par).appendChild(c);setTimeout(()=>c.remove(),3500);}
 function qCheck(){if(QZ.busy)return;if(!QZ.strokes.length){qMsg('Rita svaret först! ✏️','no');return;}
   let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;for(const s of QZ.strokes)for(const [x,y] of s){x0=Math.min(x0,x);x1=Math.max(x1,x);y0=Math.min(y0,y);y1=Math.max(y1,y);}
   if(Math.max(x1-x0,y1-y0)<22){qMsg('Rita lite större! 🔍','no');say('Rita lite större!');return;}
   const ans=QZ.a+QZ.b,r=digRead(QZ.strokes,ans);W.lastRead=r;
-  if(r.ok){QZ.busy=true;$('#qans').textContent=ans;qMsg(`Rätt! ${QZ.a} + ${QZ.b} = ${ans} 🎉`,'ok');say(`Rätt! ${QZ.a} plus ${QZ.b} är ${ans}!`);chime('done');qConfetti();
-    setTimeout(()=>{closeQuiz();openDoor(0,true);},2300);}
+  if(r.ok){QZ.busy=true;QZ.done++;prog('#qprog','💗',QZ.done);$('#qans').textContent=ans;chime('done');
+    if(QZ.done>=10){qMsg('Rätt! 10 av 10 – nu öppnas dörren! 🎉','ok');say(`Rätt! ${QZ.a} plus ${QZ.b} är ${ans}! Tio av tio! Nu öppnas dörren!`);qConfetti();setTimeout(()=>{closeQuiz();openDoor(0,true);},3000);}
+    else{qMsg(`Rätt! ${QZ.a} + ${QZ.b} = ${ans} 🎉 Bara ${10-QZ.done} kvar!`,'ok');say(`Rätt! ${QZ.a} plus ${QZ.b} är ${ans}!`);qConfetti(12);setTimeout(()=>{qNew();if(W.quizOpen==='math')setTimeout(qAsk,100);},2300);}}
   else{QZ.tries++;QZ.busy=true;const unsure=r.conf<.45;
     qMsg(unsure?'Hmm… jag kan inte riktigt läsa det. Rita en gång till! ✏️':`Jag ser ${r.read}. Inte riktigt – försök igen! 💪`,'no');say(unsure?'Jag kan inte riktigt läsa det. Rita en gång till!':`Jag ser ${r.read}. Försök igen!`);oopsSound();
     const cd=$('#qcard');cd.classList.remove('shake');void cd.offsetWidth;cd.classList.add('shake');if(QZ.tries>=2&&!unsure)$('#qhelp').classList.add('pulse');
@@ -2080,7 +2143,7 @@ window.addEventListener('resize',()=>{if(W.quizOpen)qResize();});
 /* ---------------- stjärndörren: skriv av lösenordet ---------------- */
 const LETTERS='ABCDEFGHIJKLMNOPQRSTUVWXYZÅÄÖ';
 const WORDS=['MAMMA','PAPPA','ELSA','NOVA','GUNNEL','RAGNAR','CARINA','HÄST','KATT','HUND','KO','GRIS','FÅR','GET','MUS','SOL','BIL','BOLL','KUNG','KRONA','FISK','ANKA','UGGLA','BÅT','ÄPPLE','BJÖRN','LEJON','MÅNE','SLOTT','PRINS'];
-const WQ={word:'',last:'',boxes:[],busy:false};
+const WQ={word:'',last:'',boxes:[],busy:false,done:0,used:new Set()};
 const letProbs=strokes=>digProbs(digImage(strokes),'letmodel');
 function wLayout(){const cols=$('#wcols'),n=WQ.boxes.length;if(!n)return;const av=Math.max(200,cols.clientWidth-8),gap=10;
   let per=n,bw=(av-gap*(per-1))/per;if(bw<76&&n>3){per=Math.ceil(n/2);bw=(av-gap*(per-1))/per;}
@@ -2112,9 +2175,10 @@ function wBox(ch,i){const col=document.createElement('div');col.className='wcol'
   b.er.addEventListener('click',()=>{if(!b.ok&&!WQ.busy){wReset(b);wState();}});
   return b;}
 function wSay(){say(`Lösenordet är ${WQ.word.toLowerCase()}. Skriv av bokstäverna!`);}
-function openWordQuiz(){W.quizOpen='word';keys.clear();joy.x=joy.y=0;let w;do w=WORDS[Math.floor(Math.random()*WORDS.length)];while(w===WQ.last);WQ.word=WQ.last=w;WQ.busy=false;
-  const cols=$('#wcols');cols.innerHTML='';WQ.boxes=[...w].map((ch,i)=>wBox(ch,i));WQ.boxes.forEach(b=>cols.appendChild(b.col));
-  $('#qcard').classList.add('hidden');$('#wcard').classList.remove('hidden');wMsg('','');$('#quiz').classList.remove('hidden');requestAnimationFrame(()=>{wLayout();wState();});chime('tab');setTimeout(wSay,250);}
+function wNew(){let pool=WORDS.filter(x=>!WQ.used.has(x)&&x!==WQ.last);if(!pool.length){WQ.used.clear();pool=WORDS.filter(x=>x!==WQ.last);}const w=pool[Math.floor(Math.random()*pool.length)%pool.length];
+  WQ.used.add(w);WQ.word=WQ.last=w;WQ.busy=false;const cols=$('#wcols');cols.innerHTML='';WQ.boxes=[...w].map((ch,i)=>wBox(ch,i));WQ.boxes.forEach(b=>cols.appendChild(b.col));wMsg('','');prog('#wprog','⭐',WQ.done);}
+function openWordQuiz(){W.quizOpen='word';keys.clear();joy.x=joy.y=0;wNew();
+  $('#qcard').classList.add('hidden');$('#wcard').classList.remove('hidden');$('#quiz').classList.remove('hidden');requestAnimationFrame(()=>{wLayout();wState();});chime('tab');setTimeout(wSay,250);}
 /* tangentbord: skriv bokstäverna i tur och ordning */
 function wKey(e){if(WQ.busy)return;if(e.code==='Enter'){wCheck();return;}
   if(e.code==='Backspace'){const b=[...WQ.boxes].reverse().find(x=>x.ok||x.strokes.length);if(b){wReset(b);wState();}e.preventDefault();return;}
@@ -2127,16 +2191,27 @@ function wCheck(){if(WQ.busy)return;let missing=0;const bad=[];
   if(bad.length){const [b,seen,c]=bad[0];bad.forEach(([x])=>wBad(x));oopsSound();const t=c>.5?`I ruta ${b.i+1} ser jag ${seen}, men där ska det stå ${b.exp}. Försök igen! 💪`:`Jag kan inte riktigt läsa ruta ${b.i+1}. Rita ${b.exp} en gång till! ✏️`;
     wMsg(t,'no');say(c>.5?`Jag ser ${seen}. Där ska det stå ${b.exp}.`:`Rita ${b.exp} en gång till!`);WQ.busy=true;setTimeout(()=>{bad.forEach(([x])=>wReset(x));WQ.busy=false;wState();},1300);}
   else if(missing){wMsg('Skriv alla bokstäverna! ✏️','no');say('Skriv alla bokstäverna!');}}
-function wWin(){if(WQ.busy)return;WQ.busy=true;wMsg(`Rätt! Lösenordet är ${WQ.word} 🎉`,'ok');setTimeout(()=>say(`Rätt! ${WQ.word.toLowerCase()}!`),200);chime('done');qConfetti();
-  setTimeout(()=>{closeQuiz();openDoor(1,true);},2400);}
+function wWin(){if(WQ.busy)return;WQ.busy=true;WQ.done++;prog('#wprog','⭐',WQ.done);chime('done');const w=WQ.word.toLowerCase();
+  if(WQ.done>=10){wMsg('Rätt! 10 av 10 – nu öppnas dörren! 🎉','ok');setTimeout(()=>say(`Rätt! ${w}! Tio av tio! Nu öppnas dörren!`),200);qConfetti();setTimeout(()=>{closeQuiz();openDoor(1,true);},3000);}
+  else{wMsg(`Rätt! ${WQ.word} 🎉 Bara ${10-WQ.done} kvar!`,'ok');setTimeout(()=>say(`Rätt! ${w}!`),200);qConfetti(12);
+    setTimeout(()=>{if(W.quizOpen!=='word')return;wNew();requestAnimationFrame(()=>{wLayout();wState();});setTimeout(wSay,100);},2300);}}
 $('#wok').addEventListener('click',wCheck);$('#wx').addEventListener('click',closeQuiz);$('#wread').addEventListener('click',wSay);
 $('#wclear').addEventListener('click',()=>{if(WQ.busy)return;WQ.boxes.forEach(b=>{if(!b.ok)wReset(b);});wMsg('','');wState();});
 window.addEventListener('resize',()=>{if(W.quizOpen==='word')wLayout();});
-window.__dig={digImage,digProbs,digRead,digGroups,openQuiz,closeQuiz,qCheck,QZ,openDoor,WQ,letProbs,wCheck,openWordQuiz};
+/* ---------------- belöningar ---------------- */
+const REWARDS=[{key:'heart',cat:'acc',id:'guldhjarta',title:'Guldiga hjärttrollspöt',tal:'Du har låst upp ett stort guldigt hjärttrollspö!',view:{t:[.8,2.9,.3],d:11.5,el:.5,rot:-.35}},
+  {key:'star',cat:'outfit',id:'guldbrud',title:'Guldig bröllopsklänning',tal:'Du har låst upp en guldig bröllopsklänning!',view:{t:[0,2.35,0],d:13.5,el:.9,rot:.6}}];
+function rebuildPlayer(){if(!W.pc)return;W.player.remove(W.pc);disposeTree(W.pc);MATMODE='std';W.pc=compact(rigChar(buildChar(S)));MATMODE='toon';W.pc.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});W.player.add(W.pc);}
+function showReward(n){const R=REWARDS[n];if(!R||mode!=='world')return;UNLOCK[R.key]=true;NEWUNL.add(R.id);S[R.cat]=R.id;save();rebuildChar();rebuildPlayer();
+  $('#rwimg').src=snapChar(S,R.view,320,320);$('#rwname').textContent=R.title;$('#reward').classList.remove('hidden');W.rewardOpen=true;keys.clear();joy.x=joy.y=0;
+  chime('done');setTimeout(()=>chime('spin'),600);say(R.tal+' Den finns nu i klädskåpet.');qConfetti(40,'#reward');}
+function closeReward(){$('#reward').classList.add('hidden');W.rewardOpen=false;}
+$('#rwok').addEventListener('click',closeReward);$('#reward').addEventListener('pointerdown',e=>e.stopPropagation());
+window.__dig={digImage,digProbs,digRead,digGroups,openQuiz,closeQuiz,qCheck,QZ,openDoor,WQ,letProbs,wCheck,openWordQuiz,showReward,closeReward,UNLOCK};
 function chestPoke(){const c=W.chest;lockBubble({x:c.x+1,y:c.y+2.6,z:c.z},'💎 Skatten är din!');chestSound();}
 function updateWorld(dt){const P=W.P,C=W.cam3;globalCool-=dt;
   const K=c=>keys.has(c);let ix=0,iz=0;if(K('KeyW')||K('ArrowUp'))iz+=1;if(K('KeyS')||K('ArrowDown'))iz-=1;if(K('KeyA')||K('ArrowLeft'))ix-=1;if(K('KeyD')||K('ArrowRight'))ix+=1;
-  ix+=joy.x;iz+=joy.y;if(W.quizOpen)ix=iz=0;const il=Math.hypot(ix,iz);if(il>1){ix/=il;iz/=il;}
+  ix+=joy.x;iz+=joy.y;if(W.quizOpen||W.rewardOpen)ix=iz=0;const il=Math.hypot(ix,iz);if(il>1){ix/=il;iz/=il;}
   if(K('KeyQ'))C.yaw+=dt*2;if(K('KeyE'))C.yaw-=dt*2;
   const fx=-Math.sin(C.yaw),fz=-Math.cos(C.yaw),rx=Math.cos(C.yaw),rz=-Math.sin(C.yaw);
   const mx=rx*ix+fx*iz,mz=rz*ix+fz*iz,ml=Math.hypot(mx,mz);const speed=(K('ShiftLeft')||K('ShiftRight'))?16:9.5;
@@ -2185,7 +2260,7 @@ function startWorld(){if(W.pc){W.player.remove(W.pc);disposeTree(W.pc);}MATMODE=
   resize();const h=$('#whint');h.style.opacity=1;setTimeout(hideHint,12000);
   const wl=$('#welcome');wl.classList.remove('hidden');wl.style.animation='none';void wl.offsetWidth;wl.style.animation='';setTimeout(()=>wl.classList.add('hidden'),3500);
   chime('done');say('Välkommen till sagolandet!');}
-function exitWorld(){if(W.quizOpen)closeQuiz();renderer.toneMapping=THREE.NoToneMapping;renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));mode='dress';keys.clear();joy.x=joy.y=0;$('#dress').classList.remove('playing');$('#worldui').classList.add('hidden');resize();chime('tab');}
+function exitWorld(){if(W.quizOpen)closeQuiz();if(W.rewardOpen)closeReward();renderer.toneMapping=THREE.NoToneMapping;renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));mode='dress';keys.clear();joy.x=joy.y=0;$('#dress').classList.remove('playing');$('#worldui').classList.add('hidden');resize();chime('tab');}
 $('#done').addEventListener('click',enterWorld);
 const QUAL={hog:{name:'Hög',pr:1.5,sh:2048,grass:48000,bloom:true},mellan:{name:'Mellan',pr:1,sh:1024,grass:20000,bloom:false},lag:{name:'Låg',pr:.75,sh:0,grass:0,bloom:false}};
 function loadQ(){try{const q=localStorage.getItem('kk3d-gfx');if(QUAL[q])return q;}catch(e){}return matchMedia('(pointer: coarse)').matches?'mellan':'hog';}
