@@ -146,10 +146,10 @@
   .qmsg.ok{color:#19a35a}.qmsg.no{color:#e0559c}
   .qcard.shake{animation:shake .45s}
   @keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-14px)}40%{transform:translateX(12px)}60%{transform:translateX(-8px)}80%{transform:translateX(5px)}}
-  .wcard{grid-template-areas:none;width:min(97vw,820px)}
+  .wcard{grid-template-areas:none;width:min(98vw,1500px)}
   .wtitle{color:#c98a00}
   .wcard .qtitle,.wcard .qbtns,.wcard .qmsg{grid-area:auto}
-  .wcols{display:flex;flex-wrap:wrap;gap:12px 10px;justify-content:center;width:100%;padding:4px 0}
+  .wcols{display:flex;flex-wrap:nowrap;gap:12px 10px;justify-content:center;width:100%;padding:4px 0}
   .wcol{display:flex;flex-direction:column;align-items:center;gap:5px}
   .wlet{font-size:calc(var(--bw)*.5);min-height:calc(var(--bw)*.5);font-weight:700;line-height:1;color:#7a3fd0;text-shadow:0 3px 0 #ead9ff}
   .wbox{position:relative;width:var(--bw);height:calc(var(--bw)*1.18);border-radius:18px;background:#fff;box-shadow:inset 0 0 0 4px #e6d2fb,0 4px 0 #e6d2fb;touch-action:none;overflow:hidden;transition:background .2s}
@@ -2163,13 +2163,13 @@ const LETTERS='ABCDEFGHIJKLMNOPQRSTUVWXYZÅÄÖ';
 const WORDS=['MAMMA','PAPPA','ELSA','NOVA','GUNNEL','RAGNAR','CARINA','HÄST','KATT','HUND','KO','GRIS','FÅR','GET','MUS','SOL','BIL','BOLL','KUNG','KRONA','FISK','ANKA','UGGLA','BÅT','ÄPPLE','BJÖRN','LEJON','MÅNE','SLOTT','PRINS'];
 const WQ={word:'',last:'',boxes:[],busy:false,done:0,used:new Set()};
 const letProbs=strokes=>digProbs(digImage(strokes),'letmodel');
-function wLayout(){const cols=$('#wcols'),n=WQ.boxes.length;if(!n)return;const av=Math.max(200,cols.clientWidth-8),gap=10;
-  let per=n,bw=(av-gap*(per-1))/per;if(bw<76&&n>3){per=Math.ceil(n/2);bw=(av-gap*(per-1))/per;}
-  const rows=Math.ceil(n/per),hmax=(window.innerHeight-(window.innerHeight<560?200:250))/rows/1.95;bw=Math.max(48,Math.min(124,bw,hmax));
+function wLayout(){const cols=$('#wcols'),n=WQ.boxes.length;if(!n)return;cols.style.maxWidth='';const av=Math.max(200,cols.clientWidth-8),gap=10;
+  let per=n,bw=(av-gap*(per-1))/per;
+  const rows=Math.ceil(n/per),hmax=(window.innerHeight-(window.innerHeight<560?200:250))/rows/1.95;bw=Math.max(40,Math.min(250,bw,hmax));
   cols.style.setProperty('--bw',bw+'px');cols.style.maxWidth=(per*bw+(per-1)*gap+8)+'px';
   for(const b of WQ.boxes){const r=b.cv.getBoundingClientRect(),d=Math.min(2,window.devicePixelRatio||1);b.cv.width=Math.max(1,Math.round(r.width*d));b.cv.height=Math.max(1,Math.round(r.height*d));wDraw(b);}}
 function wDraw(b){const r=b.cv.getBoundingClientRect(),d=b.cv.width/(r.width||1),x=b.ctx;x.setTransform(1,0,0,1,0,0);x.clearRect(0,0,b.cv.width,b.cv.height);x.setTransform(d,0,0,d,0,0);
-  if(b.typed)return;x.lineCap=x.lineJoin='round';x.strokeStyle=b.ok?'#25a862':'#8b45d6';x.lineWidth=Math.max(6,Math.min(12,r.width*.085));
+  if(b.typed)return;x.lineCap=x.lineJoin='round';x.strokeStyle=b.ok?'#25a862':'#8b45d6';x.lineWidth=Math.max(6,Math.min(20,r.width*.085));
   for(const s of b.strokes){x.beginPath();x.moveTo(s[0][0],s[0][1]);if(s.length===1)x.lineTo(s[0][0]+.01,s[0][1]);for(const p of s)x.lineTo(p[0],p[1]);x.stroke();}}
 function wState(){let cur=WQ.boxes.find(b=>!b.ok);for(const b of WQ.boxes){b.el.classList.toggle('cur',b===cur&&!b.strokes.length);b.er.classList.toggle('show',!b.ok&&b.strokes.length>0);}}
 function wMsg(t,c){const el=$('#wmsg');el.textContent=t;el.className='qmsg'+(c?' '+c:'');}
@@ -2181,7 +2181,11 @@ function wReset(b){b.ok=false;b.typed=null;b.strokes=[];b.cur=null;b.pid=null;b.
 function wBad(b){b.el.classList.remove('bad');void b.el.offsetWidth;b.el.classList.add('bad');}
 function ding(k){if(!audioReady())return;const m=sfxBus(.6);const f=660*Math.pow(2,(k%8)/12*2);voice({dest:m,dur:.3,vol:.14,type:'triangle',f:[[0,f],[1,f]]});voice({dest:m,at:.08,dur:.35,vol:.1,type:'sine',f:[[0,f*1.5],[1,f*1.5]]});}
 /* efter varje streck: blir rutan grön direkt om bokstaven syns tydligt */
-function wTry(b){if(b.ok||!b.strokes.length)return;const p=letProbs(b.strokes),k=LETTERS.indexOf(b.exp);if(p[k]>=.5)wOk(b);}
+/* gränser per bokstav: A ska vara svårare (ritas lätt av misstag), G lättare (förväxlas med C/O) */
+const LTH={A:{auto:.85,ok:.6,top:true},Å:{auto:.75,ok:.5,top:true},Ä:{auto:.75,ok:.5,top:true},G:{auto:.3,ok:.06,alt:'CO'}};
+function letPass(p,ch,lvl){const k=LETTERS.indexOf(ch),t=LTH[ch]||{},th=t[lvl]??(lvl==='auto'?.5:.2);if(t.top&&argmax(p)!==k)return false;
+  if(p[k]>=th)return true;if(t.alt&&lvl==='ok'){let s=p[k];for(const c of t.alt)s+=p[LETTERS.indexOf(c)];return s>=.6&&p[k]>=.02;}return false;}
+function wTry(b){if(b.ok||!b.strokes.length)return;if(letPass(letProbs(b.strokes),b.exp,'auto'))wOk(b);}
 function wBox(ch,i){const col=document.createElement('div');col.className='wcol';col.innerHTML=`<div class="wlet">${ch}</div><div class="wbox"><canvas></canvas></div><button class="wer" aria-label="Sudda">🧽</button>`;
   const b={exp:ch,i,col,el:col.querySelector('.wbox'),cv:col.querySelector('canvas'),er:col.querySelector('.wer'),strokes:[],ok:false,typed:null,cur:null,pid:null};b.ctx=b.cv.getContext('2d');
   const pos=e=>{const r=b.cv.getBoundingClientRect();return [e.clientX-r.left,e.clientY-r.top];};
@@ -2204,7 +2208,7 @@ function wKey(e){if(WQ.busy)return;if(e.code==='Enter'){wCheck();return;}
   if(ch===b.exp){wReset(b);wOk(b,ch);}else{wBad(b);oopsSound();wMsg(`Det där var ${ch}. Leta efter ${b.exp}!`,'no');}}
 function wCheck(){if(WQ.busy)return;let missing=0;const bad=[];
   for(const b of WQ.boxes){if(b.ok)continue;if(!b.strokes.length){missing++;continue;}const p=letProbs(b.strokes),k=LETTERS.indexOf(b.exp);
-    if(p[k]>=.2)wOk(b);else bad.push([b,LETTERS[argmax(p)],Math.max(...p)]);}
+    if(letPass(p,b.exp,'ok'))wOk(b);else bad.push([b,LETTERS[argmax(p)],Math.max(...p)]);}
   if(WQ.boxes.every(x=>x.ok))return;
   if(bad.length){const [b,seen,c]=bad[0];bad.forEach(([x])=>wBad(x));oopsSound();const t=c>.5?`I ruta ${b.i+1} ser jag ${seen}, men där ska det stå ${b.exp}. Försök igen! 💪`:`Jag kan inte riktigt läsa ruta ${b.i+1}. Rita ${b.exp} en gång till! ✏️`;
     wMsg(t,'no');say(c>.5?`Jag ser ${seen}. Där ska det stå ${b.exp}.`:`Rita ${b.exp} en gång till!`);WQ.busy=true;setTimeout(()=>{bad.forEach(([x])=>wReset(x));WQ.busy=false;wState();},1300);}
