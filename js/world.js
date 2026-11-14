@@ -435,7 +435,7 @@ export function buildWorld(scene, { lowSpec = false } = {}) {
    ========================================================= */
 const PROP_COLORS = {
   DarkRed: '#a3352b', LightRed: '#c94a3c', RoofBlack: '#3b3a48', White: '#f4f1ea',
-  Brown: '#8a5a3a', Grey: '#a3a3b3'
+  Brown: '#8a5a3a', Grey: '#a3a3b3', DarkGrey: '#6b6b78', Black: '#2a2a33'
 };
 function loadOBJ(name) {
   return new OBJLoader().loadAsync(new URL(`../assets/props/${name}.obj`, import.meta.url).href).then(obj => {
@@ -452,7 +452,26 @@ function loadOBJ(name) {
 }
 
 export async function loadFarms(scene, colliders) {
-  const [barn, bigBarn, windmill, fence1, fence2] = await Promise.all(['Barn', 'BigBarn', 'Windmill', 'Fence', 'Fence2'].map(loadOBJ));
+  const [barn, bigBarn, windmill, fence1, fence2, silo, siloHouse, coop] = await Promise.all(
+    ['Barn', 'BigBarn', 'Windmill', 'Fence', 'Fence2', 'Silo', 'Silo_House', 'ChickenCoop'].map(loadOBJ));
+  // Silos och hönshus (silon står i modellens origo, huset åt -x)
+  const addProp = (f, src, lx, lz, rot = 0) => {
+    const o = src.clone(true);
+    const g = new THREE.Group();
+    g.position.set(f.x, f.h, f.z); g.rotation.y = f.yaw; scene.add(g);
+    o.position.set(lx, -0.05, lz); o.rotation.y = rot; g.add(o);
+    return o;
+  };
+  const addSilo = (f, lx, lz, withHouse) => {
+    addProp(f, withHouse ? siloHouse : silo, lx, lz);
+    const [wx, wz] = toWorld(f, lx + 0.08, lz + 0.1);
+    colliders.push({ x: wx, z: wz, r: 1.85 });
+    if (withHouse) box(f, lx - 2.55, lz + 0.1, 1.8, 3.5, f.h + 4);
+  };
+  const addCoop = (f, lx, lz) => {
+    addProp(f, coop, lx, lz);
+    box(f, lx, lz + 0.13, 2.4, 2.16, f.h + 1.85);
+  };
 
   // Väderkvarnens vingar snurrar runt navet
   const HUB = new THREE.Vector3(0, 8.94, 0.7);
@@ -575,7 +594,12 @@ export async function loadFarms(scene, colliders) {
   const SEG = 5.89, NX = 5, NZ = 4;
   const hw = SEG * NX / 2, hd = SEG * NZ / 2;
   for (const f of FARMS) {
-    if (f.kind === 'big') { addBarn(f, KITS.big, -1); continue; }
+    if (f.kind === 'big') {
+      addBarn(f, KITS.big, -1);
+      addSilo(f, 11, -3, true);          // silo med hus bredvid stora ladan
+      addCoop(f, -10, 3);                // hönshus på andra sidan
+      continue;
+    }
     addBarn(f, KITS.farm, -3);
     const g = new THREE.Group();
     g.position.set(f.x, f.h, f.z);
@@ -613,6 +637,10 @@ export async function loadFarms(scene, colliders) {
     const bl = w.children.find(o => /Blades/i.test(o.name));
     if (bl) { bl.position.copy(HUB); spinners.push(bl); }
     box(f, wx + 1.6, wz, 5.4, 2.1, f.h + 9.7);
+
+    // Silo utanför hagen till höger, hönshus inne i hagen
+    addSilo(f, hw + 4, -hd + 5, false);
+    addCoop(f, hw - 4, hd - 4.5);
   }
 
   const ease = t => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
