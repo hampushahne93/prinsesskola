@@ -134,16 +134,26 @@ addEventListener('keydown', e => {
 addEventListener('keyup', e => { keys[e.code] = false; });
 addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
 
-/* ---------- Mus: klicka för att styra kameran (pointer lock), eller dra ---------- */
-let dragging = false, lastX = 0, lastY = 0;
-canvas.addEventListener('click', () => { if (!touch && document.pointerLockElement !== canvas) canvas.requestPointerLock?.(); });
-document.addEventListener('pointerlockchange', () => { $('lockHint').classList.toggle('hide', document.pointerLockElement === canvas); });
+/* ---------- Mus: håll HÖGER musknapp för att titta runt ----------
+   Annars följer kameran gubben bakifrån och A/D svänger. */
+let dragging = false, lastX = 0, lastY = 0, hintShown = 0;
+canvas.addEventListener('contextmenu', e => e.preventDefault());
 addEventListener('mousemove', e => {
+  if (!dragging) return;
   if (document.pointerLockElement === canvas) turn(e.movementX, e.movementY);
-  else if (dragging) { turn(e.clientX - lastX, e.clientY - lastY); lastX = e.clientX; lastY = e.clientY; }
+  else { turn(e.clientX - lastX, e.clientY - lastY); lastX = e.clientX; lastY = e.clientY; }
 });
-canvas.addEventListener('mousedown', e => { if (document.pointerLockElement !== canvas) { dragging = true; lastX = e.clientX; lastY = e.clientY; } });
-addEventListener('mouseup', () => { dragging = false; });
+canvas.addEventListener('mousedown', e => {
+  if (e.button !== 2) return;
+  dragging = true; lastX = e.clientX; lastY = e.clientY;
+  try { const r = canvas.requestPointerLock?.(); if (r && r.catch) r.catch(() => {}); } catch (_) {}
+  $('lockHint').classList.add('hide');
+});
+addEventListener('mouseup', e => {
+  if (e.button !== 2 || !dragging) return;
+  dragging = false;
+  if (document.pointerLockElement === canvas) document.exitPointerLock?.();
+});
 canvas.addEventListener('wheel', e => { dist = Math.min(12, Math.max(3, dist + e.deltaY * 0.004)); }, { passive: true });
 function turn(dx, dy) {
   yaw -= dx * 0.0028;
@@ -188,6 +198,32 @@ canvas.addEventListener('touchcancel', endTouch);
 $('jumpBtn').addEventListener('touchstart', e => { e.preventDefault(); jump(); }, { passive: false });
 $('jumpBtn').addEventListener('click', jump);
 
+// Stenar, träd, höbalar och ladväggar. Väggarna körs sist och knuffar alltid tillbaka
+// till den sida man kom ifrån, så att t.ex. en höbal aldrig kan trycka ut en genom väggen.
+function collide(nx, nz, ox0, oz0) {
+  for (let pass = 0; pass < 2; pass++) {
+    for (const c of world.colliders) {
+      if (c.box || c.active === false) continue;
+      if (c.jump && P.y > c.jump) continue;                   // hoppar över staketet
+      if (c.top && P.y > c.top - 0.05) continue;              // hoppar över höbal
+      const dx = nx - c.x, dz = nz - c.z, rr = c.r + 0.35, dd = dx * dx + dz * dz;
+      if (dd < rr * rr && dd > 0.0001) { const k = rr / Math.sqrt(dd); nx = c.x + dx * k; nz = c.z + dz * k; }
+    }
+    for (const c of world.colliders) {
+      if (!c.box || c.active === false) continue;              // öppen ladudörr
+      const ex = c.hw + 0.35, ez = c.hd + 0.35;
+      const px = nx - c.x, pz = nz - c.z, ox = ex - Math.abs(px), oz = ez - Math.abs(pz);
+      if (ox <= 0 || oz <= 0) continue;
+      const qx = ox0 - c.x, qz = oz0 - c.z;                   // var man stod innan
+      const wasOutX = Math.abs(qx) >= ex - 0.02, wasOutZ = Math.abs(qz) >= ez - 0.02;
+      if (wasOutX && (!wasOutZ || ox < oz)) nx = c.x + Math.sign(qx) * ex;
+      else if (wasOutZ) nz = c.z + Math.sign(qz) * ez;
+      else if (ox < oz) nx += Math.sign(px || 1) * ox;
+      else nz += Math.sign(pz || 1) * oz;
+    }
+  }
+  return [nx, nz];
+}
 function barnAt(x, z) {
   return farms ? farms.barns.find(b => x > b.inner.minX - 0.15 && x < b.inner.maxX + 0.15 && z > b.inner.minZ - 0.15 && z < b.inner.maxZ + 0.15) : null;
 }
@@ -221,12 +257,19 @@ let wasMoving = false;
 function update(dt) {
   // Riktning från tangentbord eller joystick (i förhållande till kameran)
   let ix = 0, iz = 0;
+  const followCam = !dragging && stick.id === null;          // kameran följer gubbens ansikte
   if (keys.KeyW || keys.ArrowUp) iz += 1;
   if (keys.KeyS || keys.ArrowDown) iz -= 1;
   if (keys.KeyA || keys.ArrowLeft) ix -= 1;
   if (keys.KeyD || keys.ArrowRight) ix += 1;
   let mag = Math.min(1, Math.hypot(ix, iz));
   if (stick.id !== null) { ix = stick.x; iz = -stick.y; mag = Math.min(1, Math.hypot(ix, iz)); }
+  else if (followCam) {
+    // A/D svänger gubben (och kameran följer med bakom)
+    yaw += -ix * 2.6 * dt;
+    if (ix && !iz) P.heading = yaw + Math.PI;                  // svänger på stället
+    ix = 0; mag = Math.abs(iz);
+  }
   const walking = keys.ShiftLeft || keys.ShiftRight || (stick.id !== null && mag < 0.55);
 
   fwd.set(-Math.sin(yaw), 0, -Math.cos(yaw));
@@ -241,25 +284,26 @@ function update(dt) {
     const want = Math.atan2(move.x, move.z);
     let d = want - P.heading;
     d = Math.atan2(Math.sin(d), Math.cos(d));
-    P.heading += d * Math.min(1, dt * 12);
+    if (followCam && iz < 0) P.heading = yaw + Math.PI;        // backa: titta framåt
+    else P.heading += d * Math.min(1, dt * 12);
+    // Joystick: kameran glider mjukt in bakom gubben när man springer
+    if (stick.id !== null && lookId === null) {
+      let dy = (P.heading + Math.PI) - yaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy));
+      yaw += dy * Math.min(1, dt * 1.6);
+    }
     let nx = P.x + move.x * P.speed * dt, nz = P.z + move.z * P.speed * dt;
     // Inte för brant uppför (berg runt kanten)
     const climb = groundAt(nx, nz) - groundAt(P.x, P.z);
     if (P.grounded && climb > 0.45 && climb / Math.max(0.001, P.speed * dt) > 1.6) { nx = P.x; nz = P.z; }   // låga trösklar går bra
     if (!P.grounded && groundAt(nx, nz) > P.y + 0.35) { nx = P.x; nz = P.z; }   // i luften: studsa inte in i stenar
-    // Stenar, träd och kristaller
-    for (const c of world.colliders) {
-      if (c.active === false) continue;                       // öppen ladudörr
-      if (c.jump && P.y > c.jump) continue;                   // hoppar över staketet
-      if (c.top && !c.box && P.y > c.top - 0.05) continue;    // hoppar över sten/höbal
-      if (c.box) {
-        const px = nx - c.x, pz = nz - c.z, ox = c.hw + 0.35 - Math.abs(px), oz = c.hd + 0.35 - Math.abs(pz);
-        if (ox > 0 && oz > 0) { if (ox < oz) nx += Math.sign(px || 1) * ox; else nz += Math.sign(pz || 1) * oz; }
-        continue;
-      }
-      const dx = nx - c.x, dz = nz - c.z, rr = c.r + 0.35, dd = dx * dx + dz * dz;
-      if (dd < rr * rr && dd > 0.0001) { const k = rr / Math.sqrt(dd); nx = c.x + dx * k; nz = c.z + dz * k; }
+    // Kollision i små delsteg så man aldrig hoppar igenom en tunn vägg
+    const steps = Math.max(1, Math.ceil(Math.hypot(nx - P.x, nz - P.z) / 0.15));
+    let cx0 = P.x, cz0 = P.z;
+    for (let i = 1; i <= steps; i++) {
+      const r = collide(P.x + (nx - P.x) * i / steps, P.z + (nz - P.z) * i / steps, cx0, cz0);
+      cx0 = r[0]; cz0 = r[1];
     }
+    nx = cx0; nz = cz0;
     P.x = Math.max(-PLAY, Math.min(PLAY, nx));
     P.z = Math.max(-PLAY, Math.min(PLAY, nz));
   }
