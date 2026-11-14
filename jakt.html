@@ -100,6 +100,8 @@
   #loading .coin{font-size:64px;display:block;margin-bottom:10px;animation:flip 1.4s ease-in-out infinite}
   @keyframes flip{50%{transform:rotateY(180deg)}}
 
+  .coins.bump{animation:bump .5s cubic-bezier(.2,1.6,.4,1)}
+  @keyframes bump{40%{transform:scale(1.35)}}
   .timer{display:inline-block;font-variant-numeric:tabular-nums;min-width:96px;text-align:center;font-size:22px}
   .timer.low{background:#e23b4e;border-color:#ffd0d6;animation:tick 1s ease-in-out infinite}
   @keyframes tick{50%{transform:scale(1.12)}}
@@ -131,7 +133,7 @@
   <div class="grp keys"><div><kbd style="min-width:90px">Mellanslag</kbd></div><small>Hoppa</small></div>
   <div class="grp keys"><div><kbd>Shift</kbd></div><small>Gå</small></div>
   <div class="grp keys"><div>🖱️</div><small>Håll höger knapp: titta runt</small></div>
-  <div class="grp keys"><div><kbd>E</kbd></div><small>Öppna dörr</small></div>
+  <div class="grp keys"><div><kbd>E</kbd></div><small>Öppna dörr / kista</small></div>
   <div class="grp keys"><div><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><kbd>4</kbd><kbd>5</kbd></div><small>Prylar</small></div>
   <div class="grp keys"><div><kbd>M</kbd></div><small>Karta</small></div>
   <div class="grp touchhelp"><div>🕹️</div><small>Vänster: spring</small></div>

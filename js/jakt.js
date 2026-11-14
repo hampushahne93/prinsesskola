@@ -2,6 +2,8 @@
    Guldmyntsjakten – spelet (tredjepersonsvy)
    ========================================================= */
 import * as THREE from 'three';
+import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
+import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import { createCharacter } from './avatar.js';
 import { buildWorld, heightAt, rockHeightAt, HALF, PLAY, WATER, FARMS, loadFarms , TOWN } from './world.js';
 
@@ -29,7 +31,91 @@ const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 1400);
 
 const world = buildWorld(scene, { lowSpec: touch });
 let farms = null;
-loadFarms(scene, world.colliders).then(f => { farms = f; }).catch(e => console.error('Gårdar', e));
+loadFarms(scene, world.colliders).then(f => { farms = f; return spawnChests(f.chestSpots); }).catch(e => console.error('Gårdar', e));
+
+/* ---------- Skattkistor: 10 st på slumpade platser av 100 möjliga ---------- */
+const CHESTS = 10, chests = [];
+const CHEST_COLORS = { DarkMetal: '#4b4b58', Wood: '#a0602c', Metal: '#9097a6', Gold: '#ffcc3a', Gold_Dark: '#d0901c' };
+async function spawnChests(spots) {
+  const src = await new FBXLoader().loadAsync(new URL('../assets/props/Chest.fbx', import.meta.url).href);
+  const mats = {};
+  src.traverse(o => {
+    if (!o.isMesh) return;
+    o.material = [].concat(o.material).map(m => mats[m.name] || (mats[m.name] = new THREE.MeshLambertMaterial({
+      color: CHEST_COLORS[m.name] || '#cccccc', flatShading: true,
+      emissive: /Gold/.test(m.name) ? '#ffb000' : '#000000', emissiveIntensity: /Gold/.test(m.name) ? 0.25 : 0 })));
+    o.castShadow = true; o.frustumCulled = false;
+  });
+  const pool = spots.slice();
+  for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
+  for (const s of pool.slice(0, CHESTS)) {
+    const o = SkeletonUtils.clone(src);
+    o.scale.setScalar(0.0055);
+    o.position.set(s.x, s.y, s.z);
+    o.rotation.y = s.rot;
+    const lids = [];
+    o.traverse(b => { if (b.isBone && b.name === 'Chest_Top') lids.push({ b, r0: b.rotation.x }); });
+    scene.add(o);
+    // Glittrande stjärna ovanför så att kistan syns på håll
+    const star = new THREE.Sprite(starMat);
+    star.position.set(s.x, s.y + 1.7, s.z); star.scale.setScalar(0.7);
+    scene.add(star);
+    world.colliders.push({ x: s.x, z: s.z, r: 0.6, top: s.y + 0.95 });
+    chests.push({ ...s, obj: o, lids, star, open: false, t: 0 });
+  }
+}
+const starMat = (() => {
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const g = c.getContext('2d'), gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  gr.addColorStop(0, 'rgba(255,240,150,1)'); gr.addColorStop(0.25, 'rgba(255,210,60,0.8)'); gr.addColorStop(1, 'rgba(255,200,40,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+  g.fillStyle = '#fffbe0'; g.beginPath();
+  for (let i = 0; i < 10; i++) { const a = i * Math.PI / 5 - Math.PI / 2, r = i % 2 ? 7 : 22; g.lineTo(32 + Math.cos(a) * r, 32 + Math.sin(a) * r); }
+  g.fill();
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  return new THREE.SpriteMaterial({ map: t, transparent: true, depthWrite: false });
+})();
+let coins = player ? player.coins : 0;
+function openChest(c) {
+  if (c.open) return;
+  c.open = true;
+  const n = 10 + Math.floor(Math.random() * 21);     // 10–30 guldmynt
+  if (player) coins = Save.addCoins(player.id, n); else coins += n;
+  $('pcoins').textContent = '🪙 ' + coins;
+  $('pcoins').classList.remove('bump'); void $('pcoins').offsetWidth; $('pcoins').classList.add('bump');
+  const left = chests.filter(x => !x.open).length;
+  toast(`🎉 +${n} guldmynt!` + (left ? ` ${left} kistor kvar` : ' Du hittade alla kistor!'));
+  coinBurst(c);
+}
+// Mynt som hoppar ur kistan
+const burst = [];
+const coinGeo = new THREE.CylinderGeometry(0.16, 0.16, 0.04, 16), coinMat = new THREE.MeshLambertMaterial({ color: '#ffcc3a', emissive: '#ffb000', emissiveIntensity: 0.4 });
+function coinBurst(c) {
+  for (let i = 0; i < 8; i++) {
+    const m = new THREE.Mesh(coinGeo, coinMat);
+    m.position.set(c.x, c.y + 0.7, c.z); m.rotation.x = Math.PI / 2;
+    const a = Math.random() * Math.PI * 2;
+    scene.add(m);
+    burst.push({ m, vx: Math.cos(a) * 1.5, vz: Math.sin(a) * 1.5, vy: 5 + Math.random() * 2.5, life: 1.3 });
+  }
+}
+function updateChests(dt, t) {
+  for (const c of chests) {
+    if (c.open && c.t < 1) {
+      c.t = Math.min(1, c.t + dt * 1.8);
+      const e = 1 - Math.pow(1 - c.t, 3);
+      for (const l of c.lids) l.b.rotation.x = l.r0 - 1.2 * e;
+    }
+    if (c.open) { c.star.material = starMat; c.star.visible = c.t < 0.5; }
+    else { c.star.position.y = c.y + 1.7 + Math.sin(t * 2 + c.x) * 0.12; c.star.material.rotation = t; }
+  }
+  for (let i = burst.length - 1; i >= 0; i--) {
+    const b = burst[i];
+    b.vy -= 14 * dt; b.m.position.x += b.vx * dt; b.m.position.y += b.vy * dt; b.m.position.z += b.vz * dt;
+    b.m.rotation.z += dt * 10; b.life -= dt;
+    if (b.life <= 0) { scene.remove(b.m); burst.splice(i, 1); }
+  }
+}
 
 function resize() {
   renderer.setSize(innerWidth, innerHeight, false);
@@ -54,6 +140,12 @@ function drawMinimap(x, z, heading) {
     const fx = ((f.x + HALF) / (HALF * 2)) * s, fz = ((f.z + HALF) / (HALF * 2)) * s, r = f.kind === 'big' ? 6 : 4;
     mctx.fillStyle = f.kind === 'big' ? '#8a1f2a' : '#c94a3c'; mctx.strokeStyle = '#ffffff'; mctx.lineWidth = 1.5;
     mctx.fillRect(fx - r, fz - r, r * 2, r * 2); mctx.strokeRect(fx - r, fz - r, r * 2, r * 2);
+  }
+  for (const c of chests) {   // oöppnade kistor
+    if (c.open) continue;
+    const cx = ((c.x + HALF) / (HALF * 2)) * s, cz = ((c.z + HALF) / (HALF * 2)) * s;
+    mctx.beginPath(); mctx.arc(cx, cz, 3.5, 0, Math.PI * 2);
+    mctx.fillStyle = '#ffcc3a'; mctx.fill(); mctx.strokeStyle = '#7a4a00'; mctx.lineWidth = 1.2; mctx.stroke();
   }
   const px = ((x + HALF) / (HALF * 2)) * s, pz = ((z + HALF) / (HALF * 2)) * s;
   mctx.save(); mctx.translate(px, pz); mctx.rotate(-heading);
@@ -236,7 +328,8 @@ function barnAt(x, z) {
 }
 function groundAt(x, z) { const b = barnAt(x, z); return b ? b.floorY : Math.max(heightAt(x, z), rockHeightAt(x, z), farms ? farms.platformAt(x, z) : -Infinity); }
 let nearBarn = null;
-function useDoor() { if (nearBarn) nearBarn.toggle(); }
+let nearChest = null;
+function useDoor() { if (nearChest) openChest(nearChest); else if (nearBarn) nearBarn.toggle(); }
 addEventListener('keydown', e => { if (e.code === 'KeyE' || e.code === 'Enter') useDoor(); });
 $('prompt').addEventListener('click', useDoor);
 $('prompt').addEventListener('touchstart', e => { e.preventDefault(); useDoor(); }, { passive: false });
@@ -400,9 +493,17 @@ function update(dt) {
     let best = 4.2;
     for (const b of farms.barns) { const dd = Math.hypot(P.x - b.door.x, P.z - b.door.z); if (dd < best) { best = dd; nearBarn = b; } }
   }
+  nearChest = null;
+  { let best = 2.3; for (const c of chests) { if (c.open) continue; const dd = Math.hypot(P.x - c.x, P.z - c.z); if (dd < best && Math.abs(P.y - c.y) < 1.6) { best = dd; nearChest = c; } } }
+  updateChests(dt, performance.now() / 1000);
   const pr = $('prompt');
-  if (nearBarn) {
+  if (nearChest) {
+    pr.querySelector('span').textContent = 'öppna kistan';
+    pr.querySelector('b').textContent = '💰';
+    pr.classList.add('show');
+  } else if (nearBarn) {
     pr.querySelector('span').textContent = nearBarn.open ? 'stänga dörren' : 'öppna dörren';
+    pr.querySelector('b').textContent = '🚪';
     pr.classList.add('show');
   } else pr.classList.remove('show');
 
@@ -422,4 +523,4 @@ function loop() {
 loop();
 
 // För test: Jakt.teleport(x, z)
-window.Jakt = { P, set timeLeft(v) { timeLeft = v; }, get timeLeft() { return timeLeft; }, step(n = 1, dt = 1 / 60) { for (let i = 0; i < n; i++) { update(dt); if (farms) farms.update(0, dt); } }, get farms() { return farms; }, get cam() { return camera.position.toArray(); }, teleport(x, z) { P.x = x; P.z = z; P.y = groundAt(x, z); P.vy = 0; P.grounded = true; }, get yaw() { return yaw; }, set yaw(v) { yaw = v; }, set pitch(v) { pitch = v; }, set dist(v) { dist = v; }, keys };
+window.Jakt = { P, chests, openChest, set timeLeft(v) { timeLeft = v; }, get timeLeft() { return timeLeft; }, step(n = 1, dt = 1 / 60) { for (let i = 0; i < n; i++) { update(dt); if (farms) farms.update(0, dt); } }, get farms() { return farms; }, get cam() { return camera.position.toArray(); }, teleport(x, z) { P.x = x; P.z = z; P.y = groundAt(x, z); P.vy = 0; P.grounded = true; }, get yaw() { return yaw; }, set yaw(v) { yaw = v; }, set pitch(v) { pitch = v; }, set dist(v) { dist = v; }, keys };

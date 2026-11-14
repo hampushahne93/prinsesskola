@@ -547,6 +547,7 @@ export async function loadFarms(scene, colliders) {
   const [barn, bigBarn, windmill, fence1, fence2, silo, siloHouse, coop, ...houseSrc] = await Promise.all(
     ['Barn', 'BigBarn', 'Windmill', 'Fence', 'Fence2', 'Silo', 'Silo_House', 'ChickenCoop', 'House1', 'House2', 'House3', 'House4'].map(loadOBJ));
   const platforms = [];   // ytor man kan stå på (verandor)
+  const chestSpots = [];  // 100 fasta platser där kistor kan dyka upp
   // Silos och hönshus (silon står i modellens origo, huset åt -x)
   const addProp = (f, src, lx, lz, rot = 0) => {
     const o = src.clone(true);
@@ -677,6 +678,7 @@ export async function loadFarms(scene, colliders) {
       const a = toWorld(f, x0, z0 + oz), c = toWorld(f, x1, z1 + oz);
       return { minX: Math.min(a[0], c[0]) + 0.2, maxX: Math.max(a[0], c[0]) - 0.2, minZ: Math.min(a[1], c[1]) + 0.2, maxZ: Math.max(a[1], c[1]) - 0.2 };
     })();
+    { const [cx, cz] = toWorld(f, 0, z0 + oz + 1.1); chestSpots.push({ x: cx, z: cz, y: f.h - 0.05 + FLOOR, rot: f.yaw, where: 'lada' }); }
     barns.push({
       kind: f.kind, doors, doorCollider: door, door: { x: dx, z: dz }, inner, roof: f.h + 2.2 * S, floorY: f.h - 0.05 + FLOOR,
       open: false, t: 0,
@@ -785,6 +787,7 @@ export async function loadFarms(scene, colliders) {
     rug.rotation.x = -Math.PI / 2; rug.position.set(W((x0 + x1) / 2), FY + 0.01, W((z0 + z1) / 2) - 0.5);
     g.add(rug);
 
+    { const [cx, cz] = toWorld(f, W((x0 + x1) / 2), W(z0) + 1.0); chestSpots.push({ x: cx, z: cz, y: f.h + W(K.floor), rot: f.yaw, where: 'hus' }); }
     const [dx, dz] = toWorld(f, W((d0 + d1) / 2), W(z1) + 1.2);
     const a = toWorld(f, W(x0), W(z0)), c = toWorld(f, W(x1), W(z1));
     const inner = { minX: Math.min(a[0], c[0]) + 0.2, maxX: Math.max(a[0], c[0]) - 0.2, minZ: Math.min(a[1], c[1]) + 0.2, maxZ: Math.max(a[1], c[1]) - 0.2 };
@@ -794,9 +797,26 @@ export async function loadFarms(scene, colliders) {
     });
   }
 
+  /* ---------- Resten av kistplatserna ute i naturen (alltid samma) ---------- */
+  {
+    const R = rng(4711);
+    const free = (x, z) => !colliders.some(c => c.box
+      ? Math.abs(x - c.x) < c.hw + 1.5 && Math.abs(z - c.z) < c.hd + 1.5
+      : Math.hypot(x - c.x, z - c.z) < c.r + 1.5);
+    let tries = 0;
+    while (chestSpots.length < 100 && tries++ < 20000) {
+      const x = (R() * 2 - 1) * (PLAY - 8), z = (R() * 2 - 1) * (PLAY - 8), h = heightAt(x, z);
+      if (h < WATER + 0.7 || h > 18 || slopeAt(x, z) > 0.35) continue;
+      if (Math.hypot(x, z) < 12 || inTownBuilt(x, z)) continue;
+      if (chestSpots.some(s => Math.hypot(s.x - x, s.z - z) < 13)) continue;
+      if (!free(x, z) || rockHeightAt(x, z) > h - 0.5) continue;
+      chestSpots.push({ x, z, y: h, rot: R() * Math.PI * 2, where: 'ute' });
+    }
+  }
+
   const ease = t => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
   return {
-    barns, platforms,
+    barns, platforms, chestSpots,
     platformAt(x, z) { let y = -Infinity; for (const p of platforms) if (x > p.minX && x < p.maxX && z > p.minZ && z < p.maxZ && p.y > y) y = p.y; return y; },
     update(t, dt) {
       for (const s of spinners) s.rotation.z -= dt * 0.9;
