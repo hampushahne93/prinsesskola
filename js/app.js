@@ -7,44 +7,103 @@
 
   /* ---------- Val i designern ---------- */
   const OPT = {
-    skin: ['#f7dcc8', '#eec1a1', '#dca37c', '#bf8459', '#8d5534', '#5e3620'],
+    skin: ['#fcd9c4', '#f6b694', '#f59a78', '#d4875e', '#a5623c', '#6b3e26'],
     hair: [
       { id: 'kort', label: 'Kort', ic: '✂️' },
       { id: 'snaggad', label: 'Snaggad', ic: '🪒' },
+      { id: 'lugg', label: 'Lugg', ic: '💇' },
       { id: 'lang', label: 'Långt', ic: '👸' },
       { id: 'page', label: 'Page', ic: '💁' },
       { id: 'hastsvans', label: 'Hästsvans', ic: '🐴' },
       { id: 'tofsar', label: 'Tofsar', ic: '🎀' },
       { id: 'knut', label: 'Knut', ic: '🍩' },
-      { id: 'lockigt', label: 'Lockigt', ic: '🌀' }
+      { id: 'lockigt', label: 'Lockigt', ic: '🌀' },
+      { id: 'flint', label: 'Flint', ic: '🥚' }
     ],
     hairColor: ['#1b1310', '#3b2316', '#6a4026', '#a8733f', '#e3c27a', '#b3471f', '#ff5ccf', '#3ee8ff', '#8a5cff'],
     eyes: ['#5b3a1e', '#8a5a2b', '#2f6db5', '#3f8a4a', '#7a8a99'],
+    mouth: [
+      { id: 'glad', label: 'Glad', ic: '🙂' },
+      { id: 'flin', label: 'Flin', ic: '😁' },
+      { id: 'liten', label: 'Oj!', ic: '😮' },
+      { id: 'tunga', label: 'Tunga', ic: '😛' },
+      { id: 'neutral', label: 'Lugn', ic: '😐' }
+    ],
+    extra: [
+      { id: 'inga', label: 'Inget', ic: '➖' },
+      { id: 'kinder', label: 'Rosa kinder', ic: '☺️' },
+      { id: 'fraknar', label: 'Fräknar', ic: '🌟' },
+      { id: 'glasogon', label: 'Glasögon', ic: '👓' }
+    ],
     top: [
       { id: 'tshirt', label: 'T-shirt', ic: '👕' },
       { id: 'langarm', label: 'Långärmad', ic: '👚' },
-      { id: 'hoodie', label: 'Hoodie', ic: '🧥' },
+      { id: 'hoodie', label: 'Hoodie', ic: '🏂' },
+      { id: 'jacka', label: 'Jacka', ic: '🧥' },
       { id: 'linne', label: 'Linne', ic: '🎽' },
       { id: 'klanning', label: 'Klänning', ic: '👗' }
     ],
+    pattern: [
+      { id: 'enfargad', label: 'Enfärgad', ic: '⬜' },
+      { id: 'randig', label: 'Randig', ic: '🦓' },
+      { id: 'prickig', label: 'Prickig', ic: '🔵' },
+      { id: 'rutig', label: 'Rutig', ic: '🏁' },
+      { id: 'stjarnor', label: 'Stjärnor', ic: '⭐' },
+      { id: 'hjartan', label: 'Hjärtan', ic: '💗' }
+    ],
+    print: [
+      { id: 'ingen', label: 'Inget', ic: '➖' },
+      { id: 'hjarta', label: 'Hjärta', ic: '❤️' },
+      { id: 'stjarna', label: 'Stjärna', ic: '⭐' },
+      { id: 'blixt', label: 'Blixt', ic: '⚡' },
+      { id: 'regnbage', label: 'Regnbåge', ic: '🌈' },
+      { id: 'smiley', label: 'Smiley', ic: '😊' },
+      { id: 'blomma', label: 'Blomma', ic: '🌸' },
+      { id: 'raket', label: 'Raket', ic: '🚀' },
+      { id: 'planet', label: 'Planet', ic: '🪐' }
+    ],
     bottom: [
       { id: 'byxor', label: 'Byxor', ic: '👖' },
+      { id: 'jeans', label: 'Jeans', ic: '🧵' },
       { id: 'shorts', label: 'Shorts', ic: '🩳' },
       { id: 'kjol', label: 'Kjol', ic: '💃' }
     ],
+    shoeStyle: [
+      { id: 'sneakers', label: 'Sneakers', ic: '👟' },
+      { id: 'stovlar', label: 'Stövlar', ic: '🥾' },
+      { id: 'glitter', label: 'Glitter', ic: '✨' }
+    ],
+    hat: [
+      { id: 'ingen', label: 'Ingen', ic: '➖' },
+      { id: 'keps', label: 'Keps', ic: '🧢' },
+      { id: 'mossa', label: 'Mössa', ic: '❄️' },
+      { id: 'krona', label: 'Krona', ic: '👑' },
+      { id: 'rosett', label: 'Rosett', ic: '🎀' },
+      { id: 'horlurar', label: 'Hörlurar', ic: '🎧' }
+    ],
+    outfit: [
+      { id: 'egen', label: 'Egen', ic: '✏️' },
+      { id: 'skaterFemaleA', label: 'Skater-tjej', ic: '🛹' },
+      { id: 'skaterMaleA', label: 'Skater-kille', ic: '🛼' },
+      { id: 'cyborgFemaleA', label: 'Cyborg', ic: '🤖' },
+      { id: 'criminalMaleA', label: 'Mustasch-Max', ic: '🥸' }
+    ],
     cloth: ['#ff5ccf', '#3ee8ff', '#8dff5a', '#ffd84a', '#ff7a3d', '#8a5cff', '#e23b4e', '#2f6db5', '#ffffff', '#2a2f45']
   };
+  const COMMON = { mouth: 'glad', extra: 'kinder', pattern: 'enfargad', topColor2: '#ffffff', printColor: '#ffffff', shoeStyle: 'sneakers', hat: 'ingen', hatColor: '#e23b4e', outfit: 'egen' };
   const DEFAULT_LOOK = {
-    tjej: { skin: '#eec1a1', hair: 'lang', hairColor: '#a8733f', eyes: '#2f6db5', top: 'tshirt', topColor: '#ff5ccf', bottom: 'kjol', bottomColor: '#8a5cff', shoes: '#ffffff' },
-    kille: { skin: '#eec1a1', hair: 'kort', hairColor: '#6a4026', eyes: '#5b3a1e', top: 'hoodie', topColor: '#3ee8ff', bottom: 'byxor', bottomColor: '#2a2f45', shoes: '#e23b4e' }
+    tjej: { ...COMMON, skin: '#f6b694', hair: 'lang', hairColor: '#a8733f', eyes: '#2f6db5', top: 'tshirt', topColor: '#ff5ccf', print: 'hjarta', bottom: 'kjol', bottomColor: '#8a5cff', shoes: '#ffffff' },
+    kille: { ...COMMON, skin: '#f6b694', hair: 'kort', hairColor: '#6a4026', eyes: '#5b3a1e', top: 'hoodie', topColor: '#3ee8ff', print: 'blixt', printColor: '#ffd84a', bottom: 'jeans', bottomColor: '#2f6db5', shoes: '#e23b4e' }
   };
   const TABS = [
     { id: 'kropp', ic: '🧍', label: 'Kropp', focus: 'body' },
     { id: 'har', ic: '💇', label: 'Hår', focus: 'head' },
-    { id: 'ogon', ic: '👀', label: 'Ögon', focus: 'eyes' },
+    { id: 'ansikte', ic: '😊', label: 'Ansikte', focus: 'eyes' },
     { id: 'troja', ic: '👕', label: 'Tröja', focus: 'top' },
     { id: 'byxor', ic: '👖', label: 'Byxor', focus: 'bottom' },
-    { id: 'skor', ic: '👟', label: 'Skor', focus: 'shoes' }
+    { id: 'skor', ic: '👟', label: 'Skor', focus: 'shoes' },
+    { id: 'hatt', ic: '🧢', label: 'Hatt', focus: 'hat' },
+    { id: 'drakt', ic: '🦸', label: 'Dräkter', focus: 'body' }
   ];
 
   /* ---------- Ljud ---------- */
@@ -188,11 +247,10 @@
     if (portraits[p.id] && portraits[p.id].key === key) { img.src = portraits[p.id].url; return; }
     preload3D().then(mod => {
       if (!mod || !mod.renderPortrait) return;
-      try {
-        const url = mod.renderPortrait(p.look, p.gender, 256);
+      mod.renderPortrait({ ...DEFAULT_LOOK[p.gender] || DEFAULT_LOOK.tjej, ...p.look }, p.gender, 256).then(url => {
         portraits[p.id] = { key, url };
         img.src = url;
-      } catch (e) { console.error(e); }
+      }).catch(e => console.error(e));
     });
   }
   function openWho() {
@@ -315,7 +373,7 @@
   /* ---------- 3D ---------- */
   let stage = null, stagePromise = null;
   function preload3D() {
-    if (!stagePromise) stagePromise = import('./avatar.js').catch(err => { console.error(err); return null; });
+    if (!stagePromise) stagePromise = import('./avatar.js').then(m => { m.preload().catch(e => console.error(e)); return m; }).catch(err => { console.error(err); return null; });
     return stagePromise;
   }
   async function ensureStage() {
@@ -326,13 +384,11 @@
       return null;
     }
     stage = mod.createStage($('avatarCanvas'));
-    $('loader').classList.add('hide');
     return stage;
   }
   function refresh(bounce = true) {
     if (!stage) return;
-    stage.setLook(draft.look, draft.gender);
-    if (bounce) stage.bounce();
+    stage.setLook(draft.look, draft.gender).then(() => { if (bounce) stage.bounce(); }).catch(e => console.error(e));
   }
 
   /* ---------- Designerns flikar ---------- */
@@ -347,6 +403,12 @@
       $('tabs').appendChild(b);
     });
   }
+  function setLook(key, val) {
+    draft.look[key] = val;
+    if (key !== 'outfit' && key !== 'hat' && key !== 'hatColor') draft.look.outfit = 'egen';
+    pop(); refresh(); renderOpts();
+  }
+  function note(text) { const n = document.createElement('div'); n.className = 'note'; n.textContent = text; return n; }
   function h4(text) { const h = document.createElement('h4'); h.textContent = text; return h; }
   function styleGrid(list, key) {
     const g = document.createElement('div');
@@ -355,7 +417,7 @@
       const b = document.createElement('button');
       b.className = 'style' + (draft.look[key] === o.id ? ' on' : '');
       b.innerHTML = `<span class="ic">${o.ic}</span>${o.label}`;
-      b.onclick = () => { draft.look[key] = o.id; pop(); refresh(); renderOpts(); };
+      b.onclick = () => { setLook(key, o.id); };
       g.appendChild(b);
     });
     return g;
@@ -368,7 +430,7 @@
       b.className = 'sw' + (draft.look[key] === c ? ' on' : '');
       b.style.background = c;
       b.setAttribute('aria-label', c);
-      b.onclick = () => { draft.look[key] = c; pop(); refresh(); renderOpts(); };
+      b.onclick = () => { setLook(key, c); };
       g.appendChild(b);
     });
     return g;
@@ -376,33 +438,38 @@
   function renderOpts() {
     const o = $('opts');
     o.innerHTML = '';
+    const L = draft.look;
+    const preset = L.outfit && L.outfit !== 'egen';
+    if (preset && !['drakt', 'hatt'].includes(tab)) o.append(note('🦸 Du har en färdig dräkt på dig. Väljer du något här byter du till din egen design.'));
     if (tab === 'kropp') {
       o.append(h4('Tjej eller kille'));
-      o.append(styleGrid([{ id: 'tjej', label: 'Tjej', ic: '👧' }, { id: 'kille', label: 'Kille', ic: '👦' }].map(x => x), '__gender'));
-      // Gender-knapparna styr draft.gender i stället för look
-      o.querySelectorAll('.style').forEach((b, i) => {
-        const g = i === 0 ? 'tjej' : 'kille';
-        b.classList.toggle('on', draft.gender === g);
-        b.onclick = () => { draft.gender = g; pop(); refresh(); renderOpts(); };
+      const g = styleGrid([{ id: 'tjej', label: 'Tjej', ic: '👧' }, { id: 'kille', label: 'Kille', ic: '👦' }], '__gender');
+      g.querySelectorAll('.style').forEach((b, i) => {
+        const gg = i === 0 ? 'tjej' : 'kille';
+        b.classList.toggle('on', draft.gender === gg);
+        b.onclick = () => { draft.gender = gg; pop(); refresh(); renderOpts(); };
       });
-      o.append(h4('Hudfärg'), swatches(OPT.skin, 'skin'));
+      o.append(g, h4('Hudfärg'), swatches(OPT.skin, 'skin'));
     } else if (tab === 'har') {
       o.append(h4('Frisyr'), styleGrid(OPT.hair, 'hair'), h4('Hårfärg'), swatches(OPT.hairColor, 'hairColor'));
-    } else if (tab === 'ogon') {
-      o.append(h4('Ögonfärg'), swatches(OPT.eyes, 'eyes'));
+    } else if (tab === 'ansikte') {
+      o.append(h4('Ögonfärg'), swatches(OPT.eyes, 'eyes'), h4('Mun'), styleGrid(OPT.mouth, 'mouth'), h4('Extra'), styleGrid(OPT.extra, 'extra'));
     } else if (tab === 'troja') {
-      o.append(h4('Tröja'), styleGrid(OPT.top, 'top'), h4('Färg'), swatches(OPT.cloth, 'topColor'));
+      o.append(h4('Tröja'), styleGrid(OPT.top, 'top'), h4('Färg'), swatches(OPT.cloth, 'topColor'),
+        h4('Mönster'), styleGrid(OPT.pattern, 'pattern'));
+      if ((L.pattern && L.pattern !== 'enfargad') || L.top === 'jacka') o.append(h4(L.top === 'jacka' ? 'Färg på tröjan under / mönstret' : 'Mönsterfärg'), swatches(OPT.cloth, 'topColor2'));
+      o.append(h4('Tryck'), styleGrid(OPT.print, 'print'));
+      if (L.print && L.print !== 'ingen' && !['regnbage', 'smiley', 'raket'].includes(L.print)) o.append(h4('Tryckfärg'), swatches(OPT.cloth, 'printColor'));
     } else if (tab === 'byxor') {
-      if (draft.look.top === 'klanning') {
-        const n = document.createElement('div');
-        n.className = 'note';
-        n.textContent = '👗 Klänningen täcker benen. Välj en annan tröja om du vill byta byxor.';
-        o.append(h4('Byxor'), n);
-      } else {
-        o.append(h4('Byxor'), styleGrid(OPT.bottom, 'bottom'), h4('Färg'), swatches(OPT.cloth, 'bottomColor'));
-      }
+      if (L.top === 'klanning') o.append(h4('Byxor'), note('👗 Klänningen täcker benen. Välj en annan tröja om du vill byta byxor.'));
+      else o.append(h4('Byxor'), styleGrid(OPT.bottom, 'bottom'), h4('Färg'), swatches(OPT.cloth, 'bottomColor'));
     } else if (tab === 'skor') {
-      o.append(h4('Skofärg'), swatches(OPT.cloth, 'shoes'));
+      o.append(h4('Skor'), styleGrid(OPT.shoeStyle, 'shoeStyle'), h4('Färg'), swatches(OPT.cloth, 'shoes'));
+    } else if (tab === 'hatt') {
+      o.append(h4('Huvudbonad'), styleGrid(OPT.hat, 'hat'));
+      if (L.hat && !['ingen', 'krona'].includes(L.hat)) o.append(h4('Färg'), swatches(OPT.cloth, 'hatColor'));
+    } else if (tab === 'drakt') {
+      o.append(h4('Färdiga dräkter'), note('Välj "Egen" för att designa själv. Hattar går att ha till alla dräkter.'), styleGrid(OPT.outfit, 'outfit'));
     }
   }
   const pick = a => a[Math.floor(Math.random() * a.length)];
@@ -410,7 +477,14 @@
     sparks(e.clientX, e.clientY, 6);
     Object.assign(draft.look, {
       skin: pick(OPT.skin), hair: pick(OPT.hair).id, hairColor: pick(OPT.hairColor), eyes: pick(OPT.eyes),
-      top: pick(OPT.top).id, topColor: pick(OPT.cloth), bottom: pick(OPT.bottom).id, bottomColor: pick(OPT.cloth), shoes: pick(OPT.cloth)
+      mouth: pick(OPT.mouth).id, extra: pick(OPT.extra).id,
+      top: pick(OPT.top).id, topColor: pick(OPT.cloth), topColor2: pick(OPT.cloth),
+      pattern: Math.random() < 0.5 ? 'enfargad' : pick(OPT.pattern).id,
+      print: Math.random() < 0.3 ? 'ingen' : pick(OPT.print).id, printColor: pick(OPT.cloth),
+      bottom: pick(OPT.bottom).id, bottomColor: pick(OPT.cloth),
+      shoeStyle: pick(OPT.shoeStyle).id, shoes: pick(OPT.cloth),
+      hat: Math.random() < 0.5 ? 'ingen' : pick(OPT.hat).id, hatColor: pick(OPT.cloth),
+      outfit: 'egen'
     });
     fanfare(); refresh(); renderOpts();
   };
@@ -432,6 +506,15 @@
     }, 2400);
   };
 
+  $('btnRun').onclick = () => {
+    if (!stage) return;
+    const running = stage.state === 'run';
+    stage.play(running ? 'idle' : 'run');
+    $('btnRun').textContent = running ? '🏃 Spring!' : '🧍 Stå still';
+    tone(running ? 523 : 784, .12, 'sine', .06);
+  };
+  $('btnJump').onclick = () => { if (stage) { stage.bounce(); tone(880, .12, 'sine', .06); } };
+
   async function openDesigner(editId) {
     const editing = !!editId;
     draft.editingId = editId || null;
@@ -449,7 +532,17 @@
     renderOpts();
     goStep('design');
     const s = await ensureStage();
-    if (s) { refresh(false); s.focus('body'); s.wave(1.6); }
+    $('btnRun').textContent = '🏃 Spring!';
+    if (s) {
+      try {
+        await s.setLook(draft.look, draft.gender);
+        $('loader').classList.add('hide');
+      } catch (e) {
+        console.error(e);
+        $('loader').innerHTML = '<div>😕 Gubben kunde inte laddas.<br>Ladda om sidan och försök igen.</div>';
+      }
+      s.focus('body');
+    }
   }
 
   /* ---------- Start ---------- */

@@ -274,6 +274,9 @@
     pointer-events:none;-webkit-text-stroke:.06em #140f45;paint-order:stroke fill;text-shadow:0 .06em 0 #140f45}
   .hint{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);font-size:16px;font-weight:600;
     color:var(--soft);background:rgba(13,11,46,.55);padding:.4em 1em;border-radius:999px;pointer-events:none;white-space:nowrap}
+  .moves{position:absolute;left:20px;bottom:60px;display:flex;flex-direction:column;gap:10px}
+  .moves button{border:3px solid rgba(255,255,255,.7);background:rgba(13,11,46,.55);color:#fff;font-weight:700;font-size:17px;padding:.45em 1em;border-radius:999px;cursor:pointer;backdrop-filter:blur(4px)}
+  .moves button:hover{background:rgba(62,232,255,.25)}
   .loader{position:absolute;inset:0;display:grid;place-items:center;font-size:22px;font-weight:600;color:var(--soft)}
   .loader .spin{width:64px;height:64px;border-radius:50%;border:6px solid rgba(255,255,255,.2);border-top-color:var(--cyan);
     animation:spin 1s linear infinite;margin:0 auto 14px}
@@ -285,7 +288,7 @@
 
   .side{display:flex;flex-direction:column;gap:14px;padding:18px;min-height:0;
     background:rgba(20,14,70,.72);backdrop-filter:blur(10px);border-left:3px solid rgba(255,255,255,.14)}
-  .tabs{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}
+  .tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
   .tab{border:3px solid transparent;border-radius:18px;background:rgba(255,255,255,.08);color:#fff;cursor:pointer;
     display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 2px;font-size:26px;transition:.2s}
   .tab small{font-size:12px;font-weight:600;color:var(--soft)}
@@ -333,6 +336,8 @@
     .tab{font-size:22px;padding:6px 0}
     .tab small{font-size:10px}
     .hint{display:none}
+    .moves{bottom:12px;left:12px;flex-direction:row}
+    .moves button{font-size:14px;padding:.35em .8em}
     .sw{width:46px;height:46px}
     body.onboarding .sound{left:auto;right:14px;top:14px;width:50px;height:50px;font-size:22px}
     .hello{right:74px;font-size:22px}
@@ -456,7 +461,8 @@
         <div class="hello" id="hello">Designa din gubbe!</div>
         <div class="loader" id="loader"><div><div class="spin"></div>Bygger din gubbe...</div></div>
         <div class="cheer" id="cheer">Snyggt! 🎉</div>
-        <div class="hint">↔ Dra för att snurra · scrolla för att zooma</div>
+        <div class="hint">↔ Dra för att snurra · tryck på gubben så hoppar den</div>
+        <div class="moves"><button id="btnJump">⤴️ Hoppa</button><button id="btnRun">🏃 Spring!</button></div>
       </div>
       <div class="side">
         <div class="tabs" id="tabs"></div>
