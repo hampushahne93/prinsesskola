@@ -197,7 +197,7 @@
       o.connect(g).connect(ac.destination); o.start(t); o.stop(t + dur + .02);
     } catch (e) {}
   }
-  const notes = [523, 659, 784];
+  const notes = [523, 659, 784, 1047];
   const chime = () => { tone(784, .12, 'sine', .07); tone(1047, .18, 'sine', .06, .08); };
   const fanfare = () => [523, 659, 784, 1047].forEach((f, i) => tone(f, .22, 'triangle', .08, i * .1));
   const pop = () => tone(660 + Math.random() * 200, .1, 'sine', .06);
@@ -334,6 +334,7 @@
       try { await meStage.setLook(look, p.gender); } catch (e) { console.error(e); }
     }
     $('me').classList.add('show');
+    document.body.classList.add('hasMe');
   }
 
   function showMenu() {

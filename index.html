@@ -90,7 +90,7 @@
 
   /* ---------- Kort ---------- */
   .cards{display:flex;gap:clamp(16px,2.6vw,38px);flex-wrap:wrap;justify-content:center}
-  .card{--c:var(--cyan);position:relative;width:clamp(200px,23vw,280px);aspect-ratio:4/5;
+  .card{--c:var(--cyan);position:relative;width:clamp(180px,16vw,250px);aspect-ratio:4/5;
     border:none;cursor:pointer;color:var(--text);outline:none;
     border-radius:34px;padding:0;
     background:linear-gradient(170deg, color-mix(in srgb,var(--c) 45%, #1c1259) 0%, #1c1259 70%);
@@ -103,6 +103,7 @@
   .card:nth-child(1){animation-delay:.35s, 1.2s}
   .card:nth-child(2){animation-delay:.5s, 1.6s}
   .card:nth-child(3){animation-delay:.65s, 2s}
+  .card:nth-child(4){animation-delay:.8s, 2.4s}
   @keyframes cardIn{from{opacity:0;transform:translateY(80px) scale(.7)}}
   @keyframes float{50%{transform:translateY(-8px)}}
   .card::before{content:"";position:absolute;inset:10px 10px auto 10px;height:38%;border-radius:26px 26px 60% 60%/26px 26px 30% 30%;
@@ -128,12 +129,17 @@
       0 0 0 5px #fff,
       0 12px 0 5px color-mix(in srgb,var(--c) 45%, black),
       0 0 70px var(--c)}
-  .card:nth-child(2):hover,.card:nth-child(2).sel{transform:translateY(-14px) scale(1.06) rotate(1.5deg)}
+  .card:nth-child(even):hover,.card:nth-child(even).sel{transform:translateY(-14px) scale(1.06) rotate(1.5deg)}
   .card:hover .play,.card.sel .play{transform:scale(1.1)}
   .card:active{transform:translateY(-4px) scale(.97)}
   .card.abc{--c:var(--pink)}
   .card.matte{--c:var(--cyan)}
   .card.ord{--c:var(--lime)}
+  .card.guld{--c:#ffcf3a}
+  .card.guld .badge{background:radial-gradient(circle at 35% 30%, #fff6c9, #ffcf3a 50%, #c98a00)}
+  .card.guld .badge .coin{font-size:clamp(40px,4.4vw,64px);text-shadow:0 0 18px rgba(255,255,255,.7);animation:coinSpin 3s ease-in-out infinite;display:inline-block}
+  @keyframes coinSpin{0%,70%,100%{transform:rotateY(0)}85%{transform:rotateY(360deg)}}
+  .card.guld h2{font-size:clamp(17px,1.8vw,24px)}
 
   /* ---------- Spelarbricka i menyn ---------- */
   .player{position:fixed;z-index:20;top:16px;left:16px;display:none;align-items:center;gap:10px;
@@ -260,11 +266,13 @@
   /* ---------- Min gubbe i menyn ---------- */
   .me{position:fixed;z-index:9;left:1.5vw;top:17vh;width:min(19vw,320px);height:62vh;display:none}
   body:not(.onboarding) .me.show{display:block;animation:pop .8s .3s cubic-bezier(.2,1.5,.4,1) both}
+  body.hasMe main{padding-left:calc(min(19vw,320px) + 2vw)}
   .me canvas{width:100%;height:100%;display:block;cursor:pointer}
   .meName{position:absolute;left:50%;bottom:9%;transform:translateX(-50%);white-space:nowrap;font-weight:700;font-size:20px;
     background:rgba(13,11,46,.6);border:3px solid rgba(255,255,255,.7);border-radius:999px;padding:.2em .9em;pointer-events:none;
     box-shadow:0 0 18px rgba(62,232,255,.35)}
-  @media (max-width:1250px){ .me{top:auto;bottom:2vh;left:1vw;width:200px;height:300px} .meName{font-size:16px} }
+  @media (max-width:1250px){ .me{top:22vh;left:.5vw;width:190px;height:56vh} .meName{font-size:15px} body.hasMe main{padding-left:200px;padding-right:2vw} .cards{gap:clamp(12px,1.6vw,24px)} .card{width:clamp(140px,16.5vw,220px)} .card h2{font-size:clamp(16px,2vw,24px)} }
+  @media (max-width:760px){ body.hasMe main{padding-left:4vw} }
   @media (max-width:760px){ .me{display:none !important} }
 
   /* ---------- Gnistor vid klick ---------- */
@@ -373,7 +381,9 @@
   .actions .done:active{transform:translateY(3px);box-shadow:0 2px 0 #4a9c2b}
 
   @media (max-width:760px){
-    main{justify-content:flex-start;padding-top:12vh;overflow-y:auto;overflow-x:hidden}
+    main{justify-content:flex-start;padding-top:12vh;padding-bottom:90px;overflow-y:auto;overflow-x:hidden}
+    h1{font-size:10.5vw;letter-spacing:.02em}
+    .card.guld h2{font-size:17px}
     .cards{gap:16px}
     .card{width:86vw;aspect-ratio:auto;min-height:0}
     .card::before{display:none}
@@ -481,6 +491,17 @@
         <div class="txt">
           <h2>Ord skolan</h2>
           <p>Läs och bygg ord</p>
+        </div>
+        <div class="play">Spela!</div>
+      </div>
+    </button>
+
+    <button class="card guld" data-name="Guldmyntsjakten" data-say="Jakta guldmynt och lås upp nya kläder!">
+      <div class="inner">
+        <div class="badge"><b class="coin">🪙</b></div>
+        <div class="txt">
+          <h2>Guldmyntsjakten</h2>
+          <p>Hitta guldmynt</p>
         </div>
         <div class="play">Spela!</div>
       </div>
