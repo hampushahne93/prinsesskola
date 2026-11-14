@@ -3,7 +3,7 @@
    ========================================================= */
 import * as THREE from 'three';
 import { createCharacter } from './avatar.js';
-import { buildWorld, heightAt, HALF, PLAY, WATER } from './world.js';
+import { buildWorld, heightAt, HALF, PLAY, WATER, FARMS, loadFarms } from './world.js';
 
 const $ = id => document.getElementById(id);
 const touch = matchMedia('(pointer: coarse)').matches;
@@ -28,6 +28,8 @@ const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 1400);
 
 const world = buildWorld(scene, { lowSpec: touch });
+let farms = null;
+loadFarms(scene, world.colliders).then(f => { farms = f; }).catch(e => console.error('Gårdar', e));
 
 function resize() {
   renderer.setSize(innerWidth, innerHeight, false);
@@ -43,6 +45,11 @@ const mapImg = world.minimap(180);
 function drawMinimap(x, z, heading) {
   const s = mini.width;
   mctx.drawImage(mapImg, 0, 0, s, s);
+  for (const f of FARMS) {   // gårdar
+    const fx = ((f.x + HALF) / (HALF * 2)) * s, fz = ((f.z + HALF) / (HALF * 2)) * s;
+    mctx.fillStyle = '#c94a3c'; mctx.strokeStyle = '#ffffff'; mctx.lineWidth = 1.5;
+    mctx.fillRect(fx - 4, fz - 4, 8, 8); mctx.strokeRect(fx - 4, fz - 4, 8, 8);
+  }
   const px = ((x + HALF) / (HALF * 2)) * s, pz = ((z + HALF) / (HALF * 2)) * s;
   mctx.save(); mctx.translate(px, pz); mctx.rotate(-heading);
   mctx.beginPath(); mctx.moveTo(0, 9); mctx.lineTo(6, -6); mctx.lineTo(0, -2); mctx.lineTo(-6, -6); mctx.closePath();
@@ -183,6 +190,11 @@ function update(dt) {
     if (P.grounded && climb / Math.max(0.001, P.speed * dt) > 1.6) { nx = P.x; nz = P.z; }
     // Stenar, träd och kristaller
     for (const c of world.colliders) {
+      if (c.box) {
+        const px = nx - c.x, pz = nz - c.z, ox = c.hw + 0.35 - Math.abs(px), oz = c.hd + 0.35 - Math.abs(pz);
+        if (ox > 0 && oz > 0) { if (ox < oz) nx += Math.sign(px || 1) * ox; else nz += Math.sign(pz || 1) * oz; }
+        continue;
+      }
       const dx = nx - c.x, dz = nz - c.z, rr = c.r + 0.35, dd = dx * dx + dz * dz;
       if (dd < rr * rr && dd > 0.0001) { const k = rr / Math.sqrt(dd); nx = c.x + dx * k; nz = c.z + dz * k; }
     }
@@ -219,7 +231,9 @@ function update(dt) {
   let d = dist;
   for (let tries = 0; tries < 10; tries++) {
     const tx = camTarget.x + Math.sin(yaw) * Math.cos(pitch) * d, tz = camTarget.z + Math.cos(yaw) * Math.cos(pitch) * d, ty = camTarget.y + Math.sin(pitch) * d;
-    const hit = world.colliders.some(c => c.top && ty < c.top + 0.4 && (tx - c.x) ** 2 + (tz - c.z) ** 2 < (c.r + 0.5) ** 2);
+    const hit = world.colliders.some(c => c.top && ty < c.top + 0.4 && (c.box
+      ? Math.abs(tx - c.x) < c.hw + 0.5 && Math.abs(tz - c.z) < c.hd + 0.5
+      : (tx - c.x) ** 2 + (tz - c.z) ** 2 < (c.r + 0.5) ** 2));
     if (!hit) break;
     d *= 0.82;
   }
@@ -244,6 +258,7 @@ function loop() {
   const dt = Math.min(clock.getDelta(), 0.05);
   update(dt);
   world.update(clock.elapsedTime);
+  if (farms) farms.update(clock.elapsedTime, dt);
   renderer.render(scene, camera);
 }
 loop();

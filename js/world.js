@@ -4,6 +4,7 @@
    kristaller, en bergsring runt kanten och rymdhimmel.
    ========================================================= */
 import * as THREE from 'three';
+import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
 
 export const HALF = 135;              // kartan går från -135 till +135 meter
 export const PLAY = HALF - 14;        // så långt man kan springa
@@ -31,8 +32,8 @@ function fbm(x, z, oct = 4) {
 }
 const sstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
-/* Rå höjdfunktion */
-function rawHeight(x, z) {
+/* Grundterräng */
+function baseHeight(x, z) {
   let h = fbm(x * 0.011, z * 0.011, 5) * 11;           // stora kullar
   h += fbm(x * 0.045 + 40, z * 0.045 - 12, 3) * 1.6;   // småkullar
   h += Math.max(0, fbm(x * 0.02 - 70, z * 0.02 + 30, 3)) * 9;   // några höga toppar
@@ -43,6 +44,43 @@ function rawHeight(x, z) {
   h += e * e * 34 + e * fbm(x * 0.06, z * 0.06, 3) * 6;          // berg runt kanten
   return h;
 }
+
+/* ---------- Gårdar: en i varje hörn, på plana platser ---------- */
+export const FARMS = [];
+{
+  const PAD = 21;
+  for (const [sx, sz] of [[1, 1], [-1, 1], [-1, -1], [1, -1]]) {
+    let best = null;
+    for (const [minW, lo, hi] of [[1.4, 34, 96], [0.6, 26, 104], [-1, 26, 104]]) {
+    if (best) break;
+    for (let a = lo; a <= hi; a += 5) for (let b = lo; b <= hi; b += 5) {
+      const x = sx * a, z = sz * b, hs = [];
+      for (let k = 0; k < 16; k++) { const t = k / 16 * Math.PI * 2; hs.push(baseHeight(x + Math.cos(t) * PAD, z + Math.sin(t) * PAD)); hs.push(baseHeight(x + Math.cos(t) * PAD * 0.5, z + Math.sin(t) * PAD * 0.5)); }
+      hs.push(baseHeight(x, z));
+      const mean = hs.reduce((p, c) => p + c, 0) / hs.length;
+      if (Math.min(...hs) < WATER + minW) continue;
+      const v = hs.reduce((p, c) => p + (c - mean) ** 2, 0) / hs.length;
+      const score = v + Math.abs(mean - 2.5) * 0.05;
+      if (!best || score < best.score) best = { x, z, h: mean, score };
+    }
+    }
+    if (!best) continue;
+    // Ladans dörr pekar mot mitten av kartan (avrundat till 90°)
+    const yaw = Math.round(Math.atan2(-best.x, -best.z) / (Math.PI / 2)) * (Math.PI / 2);
+    FARMS.push({ x: best.x, z: best.z, h: Math.max(WATER + 1.2, best.h), yaw, pad: PAD });
+  }
+}
+
+/* Höjd med utplanade gårdar */
+function rawHeight(x, z) {
+  let h = baseHeight(x, z);
+  for (const f of FARMS) {
+    const d = Math.hypot(x - f.x, z - f.z);
+    if (d < f.pad + 14) h += (f.h - h) * (1 - sstep(f.pad, f.pad + 14, d));
+  }
+  return h;
+}
+const inFarm = (x, z, extra = 0) => FARMS.some(f => Math.hypot(x - f.x, z - f.z) < f.pad + extra);
 
 /* Höjdkarta i rutnät + bilinjär avläsning (exakt som meshen) */
 const N = SEG + 1;
@@ -75,6 +113,10 @@ function groundColor(x, z, h, slope, out) {
   if (slope > 0.6) out.lerp(C('#8a7f9e'), sstep(0.6, 1.2, slope));            // sten i branter
   if (h > 16) out.lerp(C('#9a90b5'), sstep(16, 28, h));                       // berg
   if (h > 30) out.lerp(C('#f2f0ff'), sstep(30, 38, h));                       // snötoppar
+  for (const f of FARMS) {                                                      // grusplan vid ladan
+    const d = Math.hypot(x - f.x, z - f.z);
+    if (d < 13) out.lerp(C(n > 0.5 ? '#c4a574' : '#b8976a'), (1 - sstep(8, 13, d)) * 0.85);
+  }
   return out;
 }
 
@@ -194,10 +236,11 @@ export function buildWorld(scene, { lowSpec = false } = {}) {
 
   /* ---------- Hjälp för utplacering ---------- */
   const R = rng(1234);
+  let avoidFarm = 4;
   const spot = (minH = WATER + 0.4, maxSlope = 0.55, edge = PLAY - 2) => {
     for (let t = 0; t < 40; t++) {
       const x = (R() * 2 - 1) * edge, z = (R() * 2 - 1) * edge, h = heightAt(x, z);
-      if (h > minH && slopeAt(x, z) < maxSlope && Math.hypot(x, z) > 6) return [x, h, z];
+      if (h > minH && slopeAt(x, z) < maxSlope && Math.hypot(x, z) > 6 && !inFarm(x, z, avoidFarm)) return [x, h, z];
     }
     return null;
   };
@@ -220,6 +263,7 @@ export function buildWorld(scene, { lowSpec = false } = {}) {
     const grass = new THREE.InstancedMesh(blades, gm, count);
     let n = 0;
     const tint = new THREE.Color();
+    avoidFarm = -10;
     for (let i = 0; i < count * 3 && n < count; i++) {
       const s = spot(WATER + 0.5, 0.6, PLAY + 6);
       if (!s) continue;
@@ -234,6 +278,7 @@ export function buildWorld(scene, { lowSpec = false } = {}) {
       n++;
     }
     grass.count = n;
+    avoidFarm = 4;
     grass.receiveShadow = true;
     scene.add(grass);
   }
@@ -351,5 +396,96 @@ export function buildWorld(scene, { lowSpec = false } = {}) {
       ctx.putImageData(img, 0, 0);
       return cv;
     }
+  };
+}
+
+/* =========================================================
+   Gårdar: lada, staket och väderkvarn (OBJ-modeller)
+   ========================================================= */
+const PROP_COLORS = {
+  DarkRed: '#a3352b', LightRed: '#c94a3c', RoofBlack: '#3b3a48', White: '#f4f1ea',
+  Brown: '#8a5a3a', Grey: '#a3a3b3'
+};
+function loadOBJ(name) {
+  return new OBJLoader().loadAsync(new URL(`../assets/props/${name}.obj`, import.meta.url).href).then(obj => {
+    const mats = {};
+    const matFor = m => mats[m.name] || (mats[m.name] = new THREE.MeshLambertMaterial({ color: PROP_COLORS[m.name] || '#cccccc', flatShading: true }));
+    obj.traverse(o => {
+      if (!o.isMesh) return;
+      o.material = Array.isArray(o.material) ? o.material.map(matFor) : matFor(o.material);
+      o.castShadow = true;
+      o.receiveShadow = true;
+    });
+    return obj;
+  });
+}
+
+export async function loadFarms(scene, colliders) {
+  const [barn, windmill, fence1, fence2] = await Promise.all(['Barn', 'Windmill', 'Fence', 'Fence2'].map(loadOBJ));
+  // Vingarna ska snurra runt navet
+  const bladesSrc = windmill.children.find(o => /Blades/i.test(o.name));
+  const HUB = new THREE.Vector3(0, 8.94, 0.7);
+  if (bladesSrc) bladesSrc.geometry.translate(-HUB.x, -HUB.y, -HUB.z);
+
+  const spinners = [];
+  const SEG = 5.89, NX = 5, NZ = 4;                    // staket: 5 x 4 bitar (ca 29 x 24 m)
+  const hw = SEG * NX / 2, hd = SEG * NZ / 2;
+  const box = (f, cx, cz, w, d, top) => {
+    // lokal ruta -> världens (rotationer är alltid 90°)
+    const c = Math.cos(f.yaw), s = Math.sin(f.yaw);
+    const wx = f.x + cx * c + cz * s, wz = f.z - cx * s + cz * c;
+    const swap = Math.abs(s) > 0.5;
+    colliders.push({ box: true, x: wx, z: wz, hw: (swap ? d : w) / 2, hd: (swap ? w : d) / 2, top });
+  };
+
+  for (const f of FARMS) {
+    const g = new THREE.Group();
+    g.position.set(f.x, f.h, f.z);
+    g.rotation.y = f.yaw;
+    scene.add(g);
+
+    // Lada (dörren mot +z lokalt)
+    const b = barn.clone();
+    b.position.set(0, -0.05, -3);
+    g.add(b);
+    box(f, 0, -3 + 0.12, 7.8, 8.2, f.h + 6);
+
+    // Staket runt hagen, med grind framför ladan
+    let k = 0;
+    const place = (lx, lz, rot) => {
+      const fe = (k++ % 2 ? fence2 : fence1).clone();
+      fe.position.set(lx, 0, lz);
+      fe.rotation.y = rot;
+      g.add(fe);
+      // små kollisionscirklar längs staketet
+      for (let t = -2.6; t <= 2.6; t += 1.3) {
+        const ux = lx + Math.cos(rot) * t, uz = lz - Math.sin(rot) * t;
+        const c = Math.cos(f.yaw), s = Math.sin(f.yaw);
+        colliders.push({ x: f.x + ux * c + uz * s, z: f.z - ux * s + uz * c, r: 0.45 });
+      }
+    };
+    for (let i = 0; i < NX; i++) {
+      const lx = -hw + SEG * (i + 0.5);
+      place(lx, -hd, 0);                                 // baksidan
+      if (i !== Math.floor(NX / 2)) place(lx, hd, 0);    // framsidan (grind i mitten)
+    }
+    for (let j = 0; j < NZ; j++) {
+      const lz = -hd + SEG * (j + 0.5);
+      place(-hw, lz, Math.PI / 2);
+      place(hw, lz, Math.PI / 2);
+    }
+
+    // Väderkvarn utanför hörnet bak till vänster
+    const w = windmill.clone(true);
+    const wx = -hw - 5, wz = -hd + 4;
+    w.position.set(wx, -0.1, wz);
+    g.add(w);
+    const bl = w.children.find(o => /Blades/i.test(o.name));
+    if (bl) { bl.position.copy(HUB); spinners.push(bl); }
+    box(f, wx + 1.6, wz, 5.4, 2.1, f.h + 9.7);
+  }
+
+  return {
+    update(t, dt) { for (const s of spinners) s.rotation.z -= dt * 0.9; }
   };
 }
