@@ -26,7 +26,7 @@
 
   /* ---------- Planeter & rymdsaker ---------- */
   .planet{position:fixed;border-radius:50%;z-index:1}
-  .p1{width:28vmin;height:28vmin;right:6vw;top:7vh;
+  .p1{width:28vmin;height:28vmin;right:-3vw;top:4vh;
     background:radial-gradient(circle at 35% 30%, #ffb3ec, #ff5ccf 45%, #a42b97 100%);
     box-shadow:0 0 50px rgba(255,92,207,.55);animation:bob 7s ease-in-out infinite}
   .p1::after{content:"";position:absolute;left:-28%;right:-28%;top:42%;height:16%;border-radius:50%;
@@ -54,9 +54,12 @@
   /* ---------- Titel ---------- */
   .title{text-align:center;animation:pop .9s cubic-bezier(.2,1.6,.4,1) both}
   @keyframes pop{from{opacity:0;transform:scale(.5)}}
-  h1{font-weight:700;font-size:clamp(46px,9vw,118px);line-height:1;letter-spacing:.02em}
+  h1{font-weight:700;font-size:clamp(46px,9vw,118px);line-height:1;letter-spacing:.06em}
   h1 span{display:inline-block;animation:wave 2.8s ease-in-out infinite;
-    text-shadow:0 0 14px currentColor,0 0 34px currentColor, 0 5px 0 rgba(0,0,0,.25)}
+    -webkit-text-stroke:.07em #140f45;paint-order:stroke fill;
+    text-shadow:
+      0 .06em 0 #140f45,
+      0 0 22px color-mix(in srgb, currentColor 45%, transparent)}
   @keyframes wave{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-12px)}}
 
   /* ---------- Robot + pratbubbla ---------- */
