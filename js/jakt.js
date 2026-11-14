@@ -120,7 +120,7 @@ createCharacter(look, player ? player.gender : 'kille').then(c => {
 let yaw = Math.PI, pitch = 0.32, dist = 6.5;
 const camTarget = new THREE.Vector3();
 const barnLight = new THREE.PointLight('#ffd9a0', 30, 14, 1.6);   // varm lampa inne i ladan
-barnLight.visible = false;
+barnLight.intensity = 0;   // alltid med i scenen (annars laggar det när den tänds), bara släckt ute
 scene.add(barnLight);
 
 /* ---------- Tangentbord ---------- */
@@ -316,7 +316,7 @@ function update(dt) {
     cy = Math.min(cy, inBarn.roof);
     barnLight.position.set((I.minX + I.maxX) / 2, inBarn.roof + 0.05, (I.minZ + I.maxZ) / 2);
   }
-  barnLight.visible = !!inBarn;
+  barnLight.intensity += ((inBarn ? 30 : 0) - barnLight.intensity) * Math.min(1, dt * 8);
   camera.position.lerp(new THREE.Vector3(ccx, cy, ccz), Math.min(1, dt * (inBarn ? 6 : 14)));
   camera.lookAt(camTarget);
 
