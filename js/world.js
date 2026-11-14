@@ -67,7 +67,24 @@ export const FARMS = [];
     if (!best) continue;
     // Ladans dörr pekar mot mitten av kartan (avrundat till 90°)
     const yaw = Math.round(Math.atan2(-best.x, -best.z) / (Math.PI / 2)) * (Math.PI / 2);
-    FARMS.push({ x: best.x, z: best.z, h: Math.max(WATER + 1.2, best.h), yaw, pad: PAD });
+    FARMS.push({ kind: 'farm', x: best.x, z: best.z, h: Math.max(WATER + 1.2, best.h), yaw, pad: PAD });
+  }
+  // Två stora lador på egna gårdsplaner
+  const PADB = 17;
+  for (let n = 0; n < 2; n++) {
+    let best = null;
+    for (let x = -100; x <= 100; x += 5) for (let z = -100; z <= 100; z += 5) {
+      if (Math.hypot(x, z) < 45 || FARMS.some(f => Math.hypot(x - f.x, z - f.z) < f.pad + PADB + 22)) continue;
+      const hs = [];
+      for (let k = 0; k < 16; k++) { const t = k / 16 * Math.PI * 2; hs.push(baseHeight(x + Math.cos(t) * PADB, z + Math.sin(t) * PADB)); hs.push(baseHeight(x + Math.cos(t) * PADB * 0.5, z + Math.sin(t) * PADB * 0.5)); }
+      const mean = hs.reduce((p, c) => p + c, 0) / hs.length;
+      if (Math.min(...hs) < WATER + 0.8) continue;
+      const score = hs.reduce((p, c) => p + (c - mean) ** 2, 0) / hs.length + Math.abs(mean - 2.5) * 0.05;
+      if (!best || score < best.score) best = { x, z, h: mean, score };
+    }
+    if (!best) break;
+    const yaw = Math.round(Math.atan2(-best.x, -best.z) / (Math.PI / 2)) * (Math.PI / 2);
+    FARMS.push({ kind: 'big', x: best.x, z: best.z, h: Math.max(WATER + 1.2, best.h), yaw, pad: PADB });
   }
 }
 
@@ -115,7 +132,8 @@ function groundColor(x, z, h, slope, out) {
   if (h > 30) out.lerp(C('#f2f0ff'), sstep(30, 38, h));                       // snötoppar
   for (const f of FARMS) {                                                      // grusplan vid ladan
     const d = Math.hypot(x - f.x, z - f.z);
-    if (d < 13) out.lerp(C(n > 0.5 ? '#c4a574' : '#b8976a'), (1 - sstep(8, 13, d)) * 0.85);
+    const r0 = f.kind === 'big' ? 12 : 8;
+    if (d < r0 + 5) out.lerp(C(n > 0.5 ? '#c4a574' : '#b8976a'), (1 - sstep(r0, r0 + 5, d)) * 0.85);
   }
   return out;
 }
@@ -421,53 +439,115 @@ function loadOBJ(name) {
 }
 
 export async function loadFarms(scene, colliders) {
-  const [barn, windmill, fence1, fence2] = await Promise.all(['Barn', 'Windmill', 'Fence', 'Fence2'].map(loadOBJ));
-  // Vingarna ska snurra runt navet
-  const bladesSrc = windmill.children.find(o => /Blades/i.test(o.name));
+  const [barn, bigBarn, windmill, fence1, fence2] = await Promise.all(['Barn', 'BigBarn', 'Windmill', 'Fence', 'Fence2'].map(loadOBJ));
+
+  // Väderkvarnens vingar snurrar runt navet
   const HUB = new THREE.Vector3(0, 8.94, 0.7);
+  const bladesSrc = windmill.children.find(o => /Blades/i.test(o.name));
   if (bladesSrc) bladesSrc.geometry.translate(-HUB.x, -HUB.y, -HUB.z);
 
-  const spinners = [];
-  const SEG = 5.89, NX = 5, NZ = 4;                    // staket: 5 x 4 bitar (ca 29 x 24 m)
-  const hw = SEG * NX / 2, hd = SEG * NZ / 2;
-  const box = (f, cx, cz, w, d, top) => {
-    // lokal ruta -> världens (rotationer är alltid 90°)
-    const c = Math.cos(f.yaw), s = Math.sin(f.yaw);
-    const wx = f.x + cx * c + cz * s, wz = f.z - cx * s + cz * c;
-    const swap = Math.abs(s) > 0.5;
-    colliders.push({ box: true, x: wx, z: wz, hw: (swap ? d : w) / 2, hd: (swap ? w : d) / 2, top });
+  // Ladornas dörrar: flytta geometrin så att gångjärnet hamnar i origo
+  const KITS = {
+    farm: { src: barn, scale: 1, body: [-3.86, 3.86, -3.99, 4.06], top: 6.0, gap: [-1.93, 1.84], frontZ: 3.92,
+      hinges: { Door2: [-1.93, 3.9, -1], Door: [1.84, 3.9, 1] } },
+    big: { src: bigBarn, scale: 1.5, body: [-3.86, 3.86, -4.06, 3.99], top: 7.9, gap: [-2.98, 2.87], frontZ: 3.84,
+      hinges: { Door2: [-2.98, 3.84, -1], Door: [2.87, 3.84, 1] } }
+  };
+  for (const kit of Object.values(KITS)) {
+    kit.src.children.forEach(o => {
+      const key = /Door2/i.test(o.name) ? 'Door2' : /Door/i.test(o.name) ? 'Door' : null;
+      if (!key) return;
+      const [hx, hz] = kit.hinges[key];
+      o.geometry.translate(-hx, 0, -hz);
+      o.userData.hinge = [hx, hz, kit.hinges[key][2]];
+    });
+  }
+  const hay = new THREE.BoxGeometry(1.3, 0.7, 0.8);
+  const hayMat = new THREE.MeshLambertMaterial({ color: '#e8c55a' });
+  const hayBand = new THREE.MeshLambertMaterial({ color: '#b8873a' });
+
+  const spinners = [], barns = [];
+  const toWorld = (f, lx, lz) => { const c = Math.cos(f.yaw), s = Math.sin(f.yaw); return [f.x + lx * c + lz * s, f.z - lx * s + lz * c]; };
+  const box = (f, cx, cz, w, d, top, extra = {}) => {
+    const [wx, wz] = toWorld(f, cx, cz);
+    const swap = Math.abs(Math.sin(f.yaw)) > 0.5;
+    const c = { box: true, x: wx, z: wz, hw: (swap ? d : w) / 2, hd: (swap ? w : d) / 2, top, ...extra };
+    colliders.push(c);
+    return c;
   };
 
+  function addBarn(f, kit, oz) {
+    const g = new THREE.Group();
+    g.position.set(f.x, f.h, f.z);
+    g.rotation.y = f.yaw;
+    scene.add(g);
+    const S = kit.scale;
+    const b = kit.src.clone(true);
+    b.scale.setScalar(S);
+    b.position.set(0, -0.05, oz);
+    b.traverse(o => { if (o.isMesh) o.material = (Array.isArray(o.material) ? o.material : [o.material]).map(m => { const mm = m.clone(); mm.side = THREE.DoubleSide; return mm; }); });
+    g.add(b);
+    const doors = [];
+    b.children.forEach(o => { if (o.userData.hinge) { o.position.set(o.userData.hinge[0], 0, o.userData.hinge[1]); doors.push(o); } });
+
+    // Väggar som kollision (dörröppningen stängs av en egen låda)
+    const [x0, x1, z0, z1] = kit.body.map(v => v * S), T = 0.35, top = f.h + kit.top * S;
+    const [g0, g1] = kit.gap.map(v => v * S), fz = kit.frontZ * S + oz;
+    box(f, 0, z0 + oz + T / 2, x1 - x0, T, top);                      // bakvägg
+    box(f, x0 + T / 2, (z0 + z1) / 2 + oz, T, z1 - z0, top);          // vänster
+    box(f, x1 - T / 2, (z0 + z1) / 2 + oz, T, z1 - z0, top);          // höger
+    box(f, (x0 + g0) / 2, fz, g0 - x0, T, top);                       // fram vänster
+    box(f, (g1 + x1) / 2, fz, x1 - g1, T, top);                       // fram höger
+    const door = box(f, (g0 + g1) / 2, fz, g1 - g0, T, top, { active: true });
+
+    // Höbalar inne i ladan
+    for (const [hx, hz, hy, r] of [[x0 + 1.2, z0 + oz + 1.0, 0.35, 0], [x0 + 2.6, z0 + oz + 1.0, 0.35, 0], [x0 + 1.9, z0 + oz + 1.0, 1.05, 0], [x1 - 1.0, z0 + oz + 1.6, 0.35, Math.PI / 2]]) {
+      const m = new THREE.Mesh(hay, hayMat);
+      m.position.set(hx, hy, hz); m.rotation.y = r; m.castShadow = m.receiveShadow = true;
+      g.add(m);
+      for (const dx of [-0.35, 0.35]) { const bnd = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.72, 0.82), hayBand); bnd.position.set(dx, 0, 0); m.add(bnd); }
+      const [wx, wz] = toWorld(f, hx, hz);
+      colliders.push({ x: wx, z: wz, r: 0.6, top: f.h + hy + 0.35 });
+    }
+
+    const [dx, dz] = toWorld(f, (g0 + g1) / 2, fz + 1.2);
+    const inner = (() => {
+      const a = toWorld(f, x0, z0 + oz), c = toWorld(f, x1, z1 + oz);
+      return { minX: Math.min(a[0], c[0]) + 0.2, maxX: Math.max(a[0], c[0]) - 0.2, minZ: Math.min(a[1], c[1]) + 0.2, maxZ: Math.max(a[1], c[1]) - 0.2 };
+    })();
+    barns.push({
+      kind: f.kind, doors, doorCollider: door, door: { x: dx, z: dz }, inner, roof: f.h + 2.2 * S,
+      open: false, t: 0,
+      toggle() { this.open = !this.open; }
+    });
+  }
+
+  const SEG = 5.89, NX = 5, NZ = 4;
+  const hw = SEG * NX / 2, hd = SEG * NZ / 2;
   for (const f of FARMS) {
+    if (f.kind === 'big') { addBarn(f, KITS.big, -1); continue; }
+    addBarn(f, KITS.farm, -3);
     const g = new THREE.Group();
     g.position.set(f.x, f.h, f.z);
     g.rotation.y = f.yaw;
     scene.add(g);
 
-    // Lada (dörren mot +z lokalt)
-    const b = barn.clone();
-    b.position.set(0, -0.05, -3);
-    g.add(b);
-    box(f, 0, -3 + 0.12, 7.8, 8.2, f.h + 6);
-
-    // Staket runt hagen, med grind framför ladan
+    // Staket runt hagen, med grind framför ladan (går att hoppa över)
     let k = 0;
     const place = (lx, lz, rot) => {
       const fe = (k++ % 2 ? fence2 : fence1).clone();
       fe.position.set(lx, 0, lz);
       fe.rotation.y = rot;
       g.add(fe);
-      // små kollisionscirklar längs staketet
       for (let t = -2.6; t <= 2.6; t += 1.3) {
-        const ux = lx + Math.cos(rot) * t, uz = lz - Math.sin(rot) * t;
-        const c = Math.cos(f.yaw), s = Math.sin(f.yaw);
-        colliders.push({ x: f.x + ux * c + uz * s, z: f.z - ux * s + uz * c, r: 0.45 });
+        const [wx, wz] = toWorld(f, lx + Math.cos(rot) * t, lz - Math.sin(rot) * t);
+        colliders.push({ x: wx, z: wz, r: 0.45, jump: f.h + 1.2 });
       }
     };
     for (let i = 0; i < NX; i++) {
       const lx = -hw + SEG * (i + 0.5);
-      place(lx, -hd, 0);                                 // baksidan
-      if (i !== Math.floor(NX / 2)) place(lx, hd, 0);    // framsidan (grind i mitten)
+      place(lx, -hd, 0);
+      if (i !== Math.floor(NX / 2)) place(lx, hd, 0);
     }
     for (let j = 0; j < NZ; j++) {
       const lz = -hd + SEG * (j + 0.5);
@@ -485,7 +565,19 @@ export async function loadFarms(scene, colliders) {
     box(f, wx + 1.6, wz, 5.4, 2.1, f.h + 9.7);
   }
 
+  const ease = t => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
   return {
-    update(t, dt) { for (const s of spinners) s.rotation.z -= dt * 0.9; }
+    barns,
+    update(t, dt) {
+      for (const s of spinners) s.rotation.z -= dt * 0.9;
+      for (const b of barns) {
+        const target = b.open ? 1 : 0;
+        if (b.t === target) continue;
+        b.t = target > b.t ? Math.min(1, b.t + dt * 1.6) : Math.max(0, b.t - dt * 1.6);
+        const a = ease(b.t) * 1.75;
+        for (const d of b.doors) d.rotation.y = a * d.userData.hinge[2];
+        b.doorCollider.active = b.t < 0.7;
+      }
+    }
   };
 }

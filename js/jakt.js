@@ -45,10 +45,10 @@ const mapImg = world.minimap(180);
 function drawMinimap(x, z, heading) {
   const s = mini.width;
   mctx.drawImage(mapImg, 0, 0, s, s);
-  for (const f of FARMS) {   // gårdar
-    const fx = ((f.x + HALF) / (HALF * 2)) * s, fz = ((f.z + HALF) / (HALF * 2)) * s;
-    mctx.fillStyle = '#c94a3c'; mctx.strokeStyle = '#ffffff'; mctx.lineWidth = 1.5;
-    mctx.fillRect(fx - 4, fz - 4, 8, 8); mctx.strokeRect(fx - 4, fz - 4, 8, 8);
+  for (const f of FARMS) {   // gårdar och stora lador
+    const fx = ((f.x + HALF) / (HALF * 2)) * s, fz = ((f.z + HALF) / (HALF * 2)) * s, r = f.kind === 'big' ? 6 : 4;
+    mctx.fillStyle = f.kind === 'big' ? '#8a1f2a' : '#c94a3c'; mctx.strokeStyle = '#ffffff'; mctx.lineWidth = 1.5;
+    mctx.fillRect(fx - r, fz - r, r * 2, r * 2); mctx.strokeRect(fx - r, fz - r, r * 2, r * 2);
   }
   const px = ((x + HALF) / (HALF * 2)) * s, pz = ((z + HALF) / (HALF * 2)) * s;
   mctx.save(); mctx.translate(px, pz); mctx.rotate(-heading);
@@ -61,7 +61,7 @@ function drawMinimap(x, z, heading) {
 const P = { x: 0, z: 0, y: heightAt(0, 0), vy: 0, grounded: true, heading: 0, speed: 0 };
 const RUN = 7;            // meter per sekund (ca 1 minut diagonalt över kartan)
 const WALK = 2.6;
-const GRAVITY = -22, JUMP = 8;
+const GRAVITY = -22, JUMP = 9.5;     // ca 2 m högt: räcker för att hoppa över staketen
 let ch = null;
 createCharacter(look, player ? player.gender : 'kille').then(c => {
   ch = c;
@@ -76,6 +76,9 @@ createCharacter(look, player ? player.gender : 'kille').then(c => {
 /* ---------- Kamera (TPP) ---------- */
 let yaw = Math.PI, pitch = 0.32, dist = 6.5;
 const camTarget = new THREE.Vector3();
+const barnLight = new THREE.PointLight('#ffd9a0', 30, 14, 1.6);   // varm lampa inne i ladan
+barnLight.visible = false;
+scene.add(barnLight);
 
 /* ---------- Tangentbord ---------- */
 const keys = {};
@@ -142,6 +145,12 @@ canvas.addEventListener('touchcancel', endTouch);
 $('jumpBtn').addEventListener('touchstart', e => { e.preventDefault(); jump(); }, { passive: false });
 $('jumpBtn').addEventListener('click', jump);
 
+let nearBarn = null;
+function useDoor() { if (nearBarn) nearBarn.toggle(); }
+addEventListener('keydown', e => { if (e.code === 'KeyE' || e.code === 'Enter') useDoor(); });
+$('prompt').addEventListener('click', useDoor);
+$('prompt').addEventListener('touchstart', e => { e.preventDefault(); useDoor(); }, { passive: false });
+
 function jump() {
   if (!ch || !P.grounded) return;
   P.vy = JUMP; P.grounded = false;
@@ -190,6 +199,9 @@ function update(dt) {
     if (P.grounded && climb / Math.max(0.001, P.speed * dt) > 1.6) { nx = P.x; nz = P.z; }
     // Stenar, träd och kristaller
     for (const c of world.colliders) {
+      if (c.active === false) continue;                       // öppen ladudörr
+      if (c.jump && P.y > c.jump) continue;                   // hoppar över staketet
+      if (c.top && !c.box && P.y > c.top - 0.05) continue;    // hoppar över sten/höbal
       if (c.box) {
         const px = nx - c.x, pz = nz - c.z, ox = c.hw + 0.35 - Math.abs(px), oz = c.hd + 0.35 - Math.abs(pz);
         if (ox > 0 && oz > 0) { if (ox < oz) nx += Math.sign(px || 1) * ox; else nz += Math.sign(pz || 1) * oz; }
@@ -227,26 +239,49 @@ function update(dt) {
 
   // Kamera
   camTarget.set(P.x, P.y + 1.6, P.z);
-  // Dra in kameran om den hamnar inne i en stor sten
+  // Dra in kameran om något (vägg, sten) är i vägen
   let d = dist;
-  for (let tries = 0; tries < 10; tries++) {
-    const tx = camTarget.x + Math.sin(yaw) * Math.cos(pitch) * d, tz = camTarget.z + Math.cos(yaw) * Math.cos(pitch) * d, ty = camTarget.y + Math.sin(pitch) * d;
-    const hit = world.colliders.some(c => c.top && ty < c.top + 0.4 && (c.box
-      ? Math.abs(tx - c.x) < c.hw + 0.5 && Math.abs(tz - c.z) < c.hd + 0.5
-      : (tx - c.x) ** 2 + (tz - c.z) ** 2 < (c.r + 0.5) ** 2));
-    if (!hit) break;
-    d *= 0.82;
+  const inBarn = farms && farms.barns.find(b => P.x > b.inner.minX && P.x < b.inner.maxX && P.z > b.inner.minZ && P.z < b.inner.maxZ);
+  if (inBarn) d = Math.min(d, 4.2);
+  const sx = Math.sin(yaw) * Math.cos(pitch), sz = Math.cos(yaw) * Math.cos(pitch), sy = Math.sin(pitch);
+  for (let st = 0.6; st <= d; st += 0.35) {
+    const tx = camTarget.x + sx * st, tz = camTarget.z + sz * st, ty = camTarget.y + sy * st;
+    const hit = world.colliders.some(c => c.top && c.active !== false && ty < c.top + 0.3 && (c.box
+      ? Math.abs(tx - c.x) < c.hw + 0.25 && Math.abs(tz - c.z) < c.hd + 0.25
+      : (tx - c.x) ** 2 + (tz - c.z) ** 2 < (c.r + 0.4) ** 2));
+    if (hit) { d = Math.max(0.7, st - 0.4); break; }
   }
   const cx = camTarget.x + Math.sin(yaw) * Math.cos(pitch) * d;
   const cz = camTarget.z + Math.cos(yaw) * Math.cos(pitch) * d;
   let cy = camTarget.y + Math.sin(pitch) * d;
   cy = Math.max(cy, heightAt(cx, cz) + 0.6);
-  camera.position.lerp(new THREE.Vector3(cx, cy, cz), Math.min(1, dt * 14));
+  let ccx = cx, ccz = cz;
+  if (inBarn) {   // inne i ladan: kameran stannar innanför väggarna och under taket
+    const m = 0.5, I = inBarn.inner;
+    ccx = Math.min(I.maxX - m, Math.max(I.minX + m, cx));
+    ccz = Math.min(I.maxZ - m, Math.max(I.minZ + m, cz));
+    cy = Math.min(cy, inBarn.roof);
+    barnLight.position.set((I.minX + I.maxX) / 2, inBarn.roof + 0.05, (I.minZ + I.maxZ) / 2);
+  }
+  barnLight.visible = !!inBarn;
+  camera.position.lerp(new THREE.Vector3(ccx, cy, ccz), Math.min(1, dt * (inBarn ? 6 : 14)));
   camera.lookAt(camTarget);
 
   // Solens skuggor följer spelaren
   world.sun.position.set(P.x + 60, P.y + 90, P.z + 40);
   world.sun.target.position.set(P.x, P.y, P.z);
+
+  // Ladudörrar i närheten
+  nearBarn = null;
+  if (farms) {
+    let best = 4.2;
+    for (const b of farms.barns) { const dd = Math.hypot(P.x - b.door.x, P.z - b.door.z); if (dd < best) { best = dd; nearBarn = b; } }
+  }
+  const pr = $('prompt');
+  if (nearBarn) {
+    pr.querySelector('span').textContent = nearBarn.open ? 'stänga dörren' : 'öppna dörren';
+    pr.classList.add('show');
+  } else pr.classList.remove('show');
 
   // HUD
   drawMinimap(P.x, P.z, P.heading);
@@ -264,4 +299,4 @@ function loop() {
 loop();
 
 // För test: Jakt.teleport(x, z)
-window.Jakt = { P, teleport(x, z) { P.x = x; P.z = z; P.y = heightAt(x, z); }, get yaw() { return yaw; }, set yaw(v) { yaw = v; }, set pitch(v) { pitch = v; }, set dist(v) { dist = v; }, keys };
+window.Jakt = { P, get farms() { return farms; }, get cam() { return camera.position.toArray(); }, teleport(x, z) { P.x = x; P.z = z; P.y = heightAt(x, z); }, get yaw() { return yaw; }, set yaw(v) { yaw = v; }, set pitch(v) { pitch = v; }, set dist(v) { dist = v; }, keys };
