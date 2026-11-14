@@ -50,7 +50,7 @@
   #help .touchhelp{display:none}
   .touch #help .touchhelp{display:flex}
 
-  #lockHint{position:fixed;z-index:5;left:50%;top:60px;transform:translateX(-50%);background:rgba(20,14,70,.6);padding:5px 14px;border-radius:999px;
+  #lockHint{position:fixed;z-index:5;left:50%;top:108px;transform:translateX(-50%);background:rgba(20,14,70,.6);padding:5px 14px;border-radius:999px;
     font-size:14px;color:var(--soft);pointer-events:none}
   #lockHint.hide,.touch #lockHint{display:none}
 
@@ -100,6 +100,14 @@
   #loading .coin{font-size:64px;display:block;margin-bottom:10px;animation:flip 1.4s ease-in-out infinite}
   @keyframes flip{50%{transform:rotateY(180deg)}}
 
+  .timer{display:inline-block;font-variant-numeric:tabular-nums;min-width:96px;text-align:center;font-size:22px}
+  .timer.low{background:#e23b4e;border-color:#ffd0d6;animation:tick 1s ease-in-out infinite}
+  @keyframes tick{50%{transform:scale(1.12)}}
+  #timeUp{position:fixed;inset:0;z-index:20;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;
+    background:rgba(20,14,70,.75);backdrop-filter:blur(6px);opacity:0;pointer-events:none;transition:opacity .5s;text-align:center}
+  #timeUp.show{opacity:1;pointer-events:auto}
+  #timeUp b{font-size:54px;color:#ffd84a;text-shadow:0 4px 0 #b88a12}
+  #timeUp span{font-size:22px;font-weight:600}
   @media (max-width:700px){ .title{display:none} .pill{font-size:15px;padding:5px 10px} }
 </style>
 </head>
@@ -112,6 +120,8 @@
   <span class="pill coins" id="pcoins">🪙 0</span>
 </div>
 <div class="title">Guldmyntsjakten</div>
+<div class="hud" style="left:50%;top:56px;transform:translateX(-50%)"><span class="pill timer" id="timer">⏱️ 2:00</span></div>
+<div id="timeUp"><b>⏰ Tiden är slut!</b><span>Bra spelat! Allt du hittat är sparat.</span><span>Tillbaka till menyn…</span></div>
 <canvas id="minimap" width="180" height="180"></canvas>
 <button class="help-btn" id="helpBtn" title="Hjälp (H)">?</button>
 <div id="lockHint">Håll höger musknapp för att titta runt · A/D svänger</div>

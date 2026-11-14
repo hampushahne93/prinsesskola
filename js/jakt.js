@@ -111,6 +111,7 @@ createCharacter(look, player ? player.gender : 'kille').then(c => {
   for (const id of gearOn) c.setGear(id, true);
   $('loading').classList.add('hide');
   showHelp();
+  timeLeft = GAME_TIME;          // klockan startar när gubben är laddad
 }).catch(e => {
   console.error(e);
   $('loading').innerHTML = '<div>😕 Kunde inte ladda gubben.<br>Ladda om sidan.</div>';
@@ -254,7 +255,26 @@ const clock = new THREE.Clock();
 const fwd = new THREE.Vector3(), right = new THREE.Vector3(), move = new THREE.Vector3();
 let wasMoving = false;
 
+/* ---------- Speltid: 2 minuter, sen tillbaka till menyn (allt är redan sparat) ---------- */
+const GAME_TIME = 120;
+let timeLeft = null, timeUp = false;
+function tickTimer(dt) {
+  if (timeLeft === null || timeUp) return;
+  timeLeft = Math.max(0, timeLeft - dt);
+  const s = Math.ceil(timeLeft);
+  $('timer').textContent = `⏱️ ${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+  $('timer').classList.toggle('low', s <= 10);
+  if (timeLeft <= 0) {
+    timeUp = true;
+    for (const k in keys) keys[k] = false;
+    if (document.pointerLockElement) document.exitPointerLock?.();
+    $('timeUp').classList.add('show');
+    setTimeout(() => { location.href = 'index.html'; }, 3500);
+  }
+}
 function update(dt) {
+  tickTimer(dt);
+  if (timeUp) dt = 0.0001;       // gubben står still när tiden är slut
   // Riktning från tangentbord eller joystick (i förhållande till kameran)
   let ix = 0, iz = 0;
   const followCam = !dragging && stick.id === null;          // kameran följer gubbens ansikte
@@ -396,4 +416,4 @@ function loop() {
 loop();
 
 // För test: Jakt.teleport(x, z)
-window.Jakt = { P, step(n = 1, dt = 1 / 60) { for (let i = 0; i < n; i++) { update(dt); if (farms) farms.update(0, dt); } }, get farms() { return farms; }, get cam() { return camera.position.toArray(); }, teleport(x, z) { P.x = x; P.z = z; P.y = groundAt(x, z); P.vy = 0; P.grounded = true; }, get yaw() { return yaw; }, set yaw(v) { yaw = v; }, set pitch(v) { pitch = v; }, set dist(v) { dist = v; }, keys };
+window.Jakt = { P, set timeLeft(v) { timeLeft = v; }, get timeLeft() { return timeLeft; }, step(n = 1, dt = 1 / 60) { for (let i = 0; i < n; i++) { update(dt); if (farms) farms.update(0, dt); } }, get farms() { return farms; }, get cam() { return camera.position.toArray(); }, teleport(x, z) { P.x = x; P.z = z; P.y = groundAt(x, z); P.vy = 0; P.grounded = true; }, get yaw() { return yaw; }, set yaw(v) { yaw = v; }, set pitch(v) { pitch = v; }, set dist(v) { dist = v; }, keys };
