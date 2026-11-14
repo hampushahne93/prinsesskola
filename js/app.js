@@ -129,11 +129,13 @@
      MENY
      ========================================================= */
   const robot = $('robot'), bubble = $('bubble');
-  const defaultSay = () => data.player ? `Hej ${data.player.name}! Vad vill du lära dig idag?` : 'Hej! Vad vill du lära dig idag?';
+  const cur = () => Save.active();
+  const defaultSay = () => cur() ? `Hej ${cur().name}! Vad vill du lära dig idag?` : 'Hej! Vad vill du lära dig idag?';
+  const gen = n => /[sxz]$/i.test(n) ? n : n + 's';   // Hampus gubbe, Elsas gubbe
   const say = t => bubble.textContent = t;
   function happy(el = robot) { el.classList.remove('happy'); void el.getBoundingClientRect(); el.classList.add('happy'); }
   robot.addEventListener('click', () => {
-    const n = data.player ? data.player.name : '';
+    const n = cur() ? cur().name : '';
     const lines = ['Pip pip! Jag heter Bip!', 'Tryck på ett kort så kör vi!', `Du är jätteduktig${n ? ', ' + n : ''}!`, 'Rymden är full av bokstäver!'];
     say(lines[Math.floor(Math.random() * lines.length)]); happy(); fanfare();
   });
@@ -171,11 +173,83 @@
 
   function showMenu() {
     document.body.classList.remove('onboarding');
-    $('playerName').textContent = '👤 ' + data.player.name;
+    $('who').classList.remove('show');
+    $('playerName').textContent = '👤 ' + cur().name;
     $('player').classList.add('show');
     say(defaultSay());
   }
-  $('editAvatar').onclick = () => { chime(); openDesigner(true); };
+  $('editAvatar').onclick = () => { chime(); openDesigner(cur().id); };
+  $('switchPlayer').onclick = () => { chime(); openWho(); };
+
+  /* ---------- Vem spelar? ---------- */
+  const portraits = {};      // cache: id -> { key, url }
+  function portraitFor(p, img) {
+    const key = JSON.stringify([p.gender, p.look]);
+    if (portraits[p.id] && portraits[p.id].key === key) { img.src = portraits[p.id].url; return; }
+    preload3D().then(mod => {
+      if (!mod || !mod.renderPortrait) return;
+      try {
+        const url = mod.renderPortrait(p.look, p.gender, 256);
+        portraits[p.id] = { key, url };
+        img.src = url;
+      } catch (e) { console.error(e); }
+    });
+  }
+  function openWho() {
+    const list = $('plist');
+    list.innerHTML = '';
+    const ps = Save.players();
+    ps.forEach((p, i) => {
+      const c = document.createElement('div');
+      c.className = 'pcard' + (p.gender === 'tjej' ? ' girl' : '') + (p.id === data.activeId ? ' current' : '');
+      c.style.animationDelay = (i * 0.07) + 's';
+      c.setAttribute('role', 'button');
+      c.innerHTML = `<div class="face"><img alt=""></div><b></b>
+        <button class="mini edit" title="Ändra">✏️</button><button class="mini del" title="Ta bort">🗑️</button>`;
+      c.querySelector('b').textContent = p.name;
+      const img = c.querySelector('img');
+      img.onerror = () => {};
+      portraitFor(p, img);
+      c.onclick = e => {
+        sparks(e.clientX, e.clientY);
+        fanfare();
+        Save.setActive(p.id);
+        showMenu();
+        happy();
+      };
+      c.querySelector('.edit').onclick = e => { e.stopPropagation(); chime(); Save.setActive(p.id); openDesigner(p.id); };
+      c.querySelector('.del').onclick = e => {
+        e.stopPropagation();
+        askConfirm(`Ta bort ${gen(p.name)} gubbe?`, 'Allt som är sparat för den gubben försvinner.', () => {
+          Save.removePlayer(p.id);
+          delete portraits[p.id];
+          if (!Save.players().length) startNew(true); else openWho();
+        });
+      };
+      list.appendChild(c);
+    });
+    if (ps.length < 12) {
+      const add = document.createElement('button');
+      add.className = 'pcard add';
+      add.style.animationDelay = (ps.length * 0.07) + 's';
+      add.innerHTML = '<div class="face">+</div><b>Ny gubbe</b>';
+      add.onclick = e => { sparks(e.clientX, e.clientY); fanfare(); startNew(false); };
+      list.appendChild(add);
+    }
+    $('whoClose').style.display = cur() ? '' : 'none';
+    $('who').classList.add('show');
+  }
+  $('whoClose').onclick = () => { chime(); if (cur()) showMenu(); };
+
+  let confirmFn = null;
+  function askConfirm(title, text, fn) {
+    $('confirmTitle').textContent = title;
+    $('confirmText').textContent = text;
+    confirmFn = fn;
+    $('confirm').classList.add('show');
+  }
+  $('confirmNo').onclick = () => { $('confirm').classList.remove('show'); confirmFn = null; chime(); };
+  $('confirmYes').onclick = () => { $('confirm').classList.remove('show'); const f = confirmFn; confirmFn = null; tone(300, .25, 'triangle', .07); f && f(); };
 
   /* =========================================================
      SKAPA DIN GUBBE
@@ -196,7 +270,21 @@
     $('dots').style.display = name === 'design' ? 'none' : 'flex';
   }
 
-  const draft = { gender: null, name: '', look: null, editing: false };
+  const draft = { gender: null, name: '', look: null, editingId: null };
+
+  // Ny gubbe: första gången visas välkomsten, annars börjar vi på tjej/kille
+  function startNew(first) {
+    draft.editingId = null;
+    draft.name = '';
+    nameInput.value = '';
+    $('btnName').disabled = true;
+    $('who').classList.remove('show');
+    document.body.classList.add('onboarding');
+    $('btnCancelNew').style.display = Save.players().length ? '' : 'none';
+    goStep(first ? 'welcome' : 'gender');
+    preload3D();
+  }
+  $('btnCancelNew').onclick = () => { chime(); document.body.classList.remove('onboarding'); openWho(); };
 
   $('btnStart').onclick = e => { sparks(e.clientX, e.clientY); fanfare(); goStep('gender'); preload3D(); };
   document.querySelectorAll('.gcard').forEach(b => b.onclick = e => {
@@ -219,7 +307,7 @@
     if (!v) return;
     draft.name = v.charAt(0).toUpperCase() + v.slice(1);
     fanfare();
-    openDesigner(false);
+    openDesigner(null);
   };
   $('btnName').onclick = submitName;
   nameInput.addEventListener('keydown', e => { if (e.key === 'Enter') submitName(); });
@@ -328,14 +416,12 @@
   };
   $('btnDone').onclick = e => {
     sparks(e.clientX, e.clientY, 14);
-    Save.update(d => {
-      d.player = {
-        name: draft.name,
-        gender: draft.gender,
-        look: { ...draft.look },
-        createdAt: (d.player && d.player.createdAt) || new Date().toISOString()
-      };
-    });
+    if (draft.editingId) {
+      Save.updatePlayer(draft.editingId, p => { p.gender = draft.gender; p.look = { ...draft.look }; });
+      Save.setActive(draft.editingId);
+    } else {
+      Save.addPlayer({ name: draft.name, gender: draft.gender, look: { ...draft.look } });
+    }
     fanfare();
     $('cheer').textContent = `Snyggt, ${draft.name}! 🎉`;
     $('cheer').classList.add('show');
@@ -346,13 +432,16 @@
     }, 2400);
   };
 
-  async function openDesigner(editing) {
-    draft.editing = editing;
-    if (editing && data.player) {
-      draft.name = data.player.name;
-      draft.gender = data.player.gender;
-      draft.look = { ...DEFAULT_LOOK[draft.gender], ...data.player.look };
+  async function openDesigner(editId) {
+    const editing = !!editId;
+    draft.editingId = editId || null;
+    const ep = editing ? Save.get(editId) : null;
+    if (ep) {
+      draft.name = ep.name;
+      draft.gender = ep.gender;
+      draft.look = { ...DEFAULT_LOOK[draft.gender], ...ep.look };
     }
+    $('who').classList.remove('show');
     document.body.classList.add('onboarding');
     $('hello').textContent = editing ? `Ändra din gubbe, ${draft.name}!` : `Designa din gubbe, ${draft.name}!`;
     tab = 'kropp';
@@ -364,18 +453,22 @@
   }
 
   /* ---------- Start ---------- */
-  if (data.player) {
+  const ps = Save.players();
+  if (!ps.length) {
+    startNew(true);
+  } else if (ps.length === 1) {
+    if (!cur()) Save.setActive(ps[0].id);
     showMenu();
-    preload3D();          // så att "Ändra gubbe" går snabbt
+    preload3D();          // så att "Ändra" går snabbt
   } else {
-    document.body.classList.add('onboarding');
-    goStep('welcome');
-    preload3D();
+    // Flera gubbar: fråga vem som spelar
+    if (cur()) showMenu();
+    openWho();
   }
 
   /* ---------- Tangentbord ---------- */
   addEventListener('keydown', e => {
-    if (document.body.classList.contains('onboarding')) return;
+    if (document.body.classList.contains('onboarding') || $('who').classList.contains('show') || $('confirm').classList.contains('show')) return;
     if (overlay.classList.contains('show')) {
       if (['Escape', 'Enter', ' ', 'Backspace'].includes(e.key)) { e.preventDefault(); closeOverlay(); }
       return;

@@ -168,6 +168,49 @@
     padding:.6em 1.8em;border-radius:999px;cursor:pointer;box-shadow:0 5px 0 color-mix(in srgb,var(--c) 50%, black)}
   .panel button:active{transform:translateY(3px);box-shadow:0 2px 0 color-mix(in srgb,var(--c) 50%, black)}
 
+
+  /* ---------- Vem spelar? ---------- */
+  .who{position:fixed;inset:0;z-index:45;display:none;flex-direction:column;align-items:center;justify-content:center;
+    gap:4vh;padding:5vh 4vw;background:rgba(13,11,46,.72);backdrop-filter:blur(8px);overflow-y:auto}
+  .who.show{display:flex;animation:stepIn .5s cubic-bezier(.2,1.4,.4,1) both}
+  .who h2{font-weight:700;font-size:clamp(36px,5.5vw,64px);-webkit-text-stroke:.06em #140f45;paint-order:stroke fill;
+    text-shadow:0 .06em 0 #140f45, 0 0 24px rgba(255,92,207,.5)}
+  .plist{display:flex;flex-wrap:wrap;gap:clamp(16px,2.5vw,30px);justify-content:center;max-width:1100px}
+  .pcard{--c:var(--cyan);position:relative;width:clamp(150px,15vw,190px);border:none;cursor:pointer;color:#fff;
+    border-radius:30px;padding:14px 12px 16px;display:flex;flex-direction:column;align-items:center;gap:10px;
+    background:linear-gradient(170deg, color-mix(in srgb,var(--c) 45%, #1c1259), #1c1259 80%);
+    box-shadow:0 0 0 4px color-mix(in srgb,var(--c) 85%, white), 0 9px 0 4px color-mix(in srgb,var(--c) 45%, black), 0 0 36px color-mix(in srgb,var(--c) 45%, transparent);
+    transition:transform .3s cubic-bezier(.2,1.6,.4,1);animation:cardIn .6s cubic-bezier(.2,1.5,.4,1) both}
+  .pcard:hover{transform:translateY(-10px) scale(1.05)}
+  .pcard.girl{--c:var(--pink)}
+  .pcard.current{box-shadow:0 0 0 5px #fff, 0 9px 0 5px color-mix(in srgb,var(--c) 45%, black), 0 0 50px var(--c)}
+  .pcard .face{width:100%;aspect-ratio:1;border-radius:22px;display:grid;place-items:center;font-size:70px;overflow:hidden;
+    background:radial-gradient(circle at 50% 35%, color-mix(in srgb,var(--c) 40%, #3b2a9a), #140f45 85%)}
+  .pcard .face img{width:100%;height:100%;object-fit:cover;display:block}
+  .pcard b{font-size:clamp(20px,2vw,26px);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .pcard .mini{position:absolute;top:-10px;width:40px;height:40px;border-radius:50%;border:3px solid #fff;
+    background:#1c1259;color:#fff;font-size:18px;display:grid;place-items:center;cursor:pointer;
+    box-shadow:0 3px 0 rgba(0,0,0,.3);transition:transform .2s}
+  .pcard .mini:hover{transform:scale(1.15)}
+  .pcard .mini.edit{left:-10px}
+  .pcard .mini.del{right:-10px}
+  .pcard.add{--c:var(--lime);background:rgba(141,255,90,.08);box-shadow:0 0 0 4px rgba(141,255,90,.7);border:none}
+  .pcard.add .face{background:transparent;border:4px dashed rgba(141,255,90,.6);font-size:64px;color:var(--lime)}
+  .who .close{position:absolute;top:18px;left:18px}
+
+  /* ---------- Bekräftelse ---------- */
+  .confirm{position:fixed;inset:0;z-index:70;display:none;place-items:center;background:rgba(13,11,46,.7);backdrop-filter:blur(4px)}
+  .confirm.show{display:grid}
+  .confirm .box{--c:var(--pink);text-align:center;padding:30px 36px;border-radius:32px;max-width:90vw;
+    background:linear-gradient(170deg, color-mix(in srgb,var(--c) 40%, #1c1259), #1c1259 80%);
+    box-shadow:0 0 0 5px #fff, 0 10px 0 5px #7a2a6b, 0 0 60px var(--c);animation:pop .4s cubic-bezier(.2,1.6,.4,1)}
+  .confirm h3{font-size:clamp(24px,3.4vw,34px);margin-bottom:.3em}
+  .confirm p{color:var(--soft);font-size:18px;margin-bottom:1.2em}
+  .confirm .row{display:flex;gap:12px;justify-content:center}
+  .confirm button{border:none;cursor:pointer;font-weight:700;font-size:20px;padding:.6em 1.5em;border-radius:999px}
+  .confirm .no{background:#fff;color:var(--ink)}
+  .confirm .yes{background:#e23b4e;color:#fff;box-shadow:0 4px 0 #8a1f2c}
+
   /* ---------- Gnistor vid klick ---------- */
   .spark{position:fixed;z-index:60;pointer-events:none;font-size:22px;animation:sparkle .9s ease-out forwards}
   @keyframes sparkle{to{transform:translate(var(--dx),var(--dy)) scale(.3) rotate(200deg);opacity:0}}
@@ -314,7 +357,8 @@
 <!-- Spelarbricka -->
 <div class="player" id="player">
   <span id="playerName">👤</span>
-  <button id="editAvatar">✏️ Ändra gubbe</button>
+  <button id="switchPlayer">🔄 Byt gubbe</button>
+  <button id="editAvatar">✏️ Ändra</button>
 </div>
 
 <main>
@@ -387,6 +431,7 @@
   </section>
 
   <section class="step" id="step-gender">
+    <button class="ghost close" id="btnCancelNew" style="position:absolute;top:18px;left:18px;display:none">◀ Tillbaka</button>
     <h2>Är du en tjej eller kille?</h2>
     <div class="gender">
       <button class="gcard girl" data-gender="tjej"><span class="em">👧</span><b>Tjej</b></button>
@@ -423,6 +468,20 @@
       </div>
     </div>
   </section>
+</div>
+
+<div class="who" id="who">
+  <button class="ghost close" id="whoClose">◀ Tillbaka</button>
+  <h2>Vem spelar?</h2>
+  <div class="plist" id="plist"></div>
+</div>
+
+<div class="confirm" id="confirm">
+  <div class="box">
+    <h3 id="confirmTitle">Ta bort gubben?</h3>
+    <p id="confirmText">Allt som är sparat för den gubben försvinner.</p>
+    <div class="row"><button class="no" id="confirmNo">Nej</button><button class="yes" id="confirmYes">Ja, ta bort</button></div>
+  </div>
 </div>
 
 <button class="sound" id="sound" aria-label="Ljud på/av">🔊</button>

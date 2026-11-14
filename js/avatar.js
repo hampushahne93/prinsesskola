@@ -343,6 +343,8 @@ function buildAvatar(look, gender) {
     blob(hand, skin, 0.02, 0.055, 0.036, 0, -0.045, 0.002);
     const thumb = blob(hand, skin, 0.009, 0.024, 0.009, -s * 0.004, -0.028, 0.03);
     thumb.rotation.x = 0.5;
+    pivot.rotation.z = s * 0.11;
+    elbow.rotation.x = -0.18;
     arms.push({ pivot, elbow, s });
   }
 
@@ -620,4 +622,47 @@ export function createStage(canvas) {
       renderer.dispose();
     }
   };
+}
+
+/* ---------- Porträtt till "Vem spelar?" ---------- */
+let pr = null;
+function portraitRig() {
+  if (pr) return pr;
+  const canvas = document.createElement('canvas');
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, preserveDrawingBuffer: true });
+  renderer.setPixelRatio(1);
+  renderer.setClearColor(0x000000, 0);
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.05;
+  const scene = new THREE.Scene();
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+  scene.environmentIntensity = 0.55;
+  scene.add(new THREE.HemisphereLight(0xe6ecff, 0x2a1f6b, 0.8));
+  const key = new THREE.DirectionalLight(0xfff4ea, 2.4);
+  key.position.set(1.5, 3, 3);
+  scene.add(key);
+  const rimP = new THREE.DirectionalLight(0xff5ccf, 1.4);
+  rimP.position.set(-3, 2.5, -2.5);
+  scene.add(rimP);
+  const rimC = new THREE.DirectionalLight(0x3ee8ff, 1.4);
+  rimC.position.set(3, 2.5, -2.5);
+  scene.add(rimC);
+  const camera = new THREE.PerspectiveCamera(30, 1, 0.05, 20);
+  camera.position.set(0.25, 1.56, 1.3);
+  camera.lookAt(0, 1.47, 0);
+  pr = { renderer, scene, camera };
+  return pr;
+}
+export function renderPortrait(look, gender, size = 256) {
+  const { renderer, scene, camera } = portraitRig();
+  renderer.setSize(size, size, false);
+  const av = buildAvatar(look, gender);
+  av.neckPivot.rotation.y = 0.12;
+  scene.add(av.root);
+  renderer.render(scene, camera);
+  const url = renderer.domElement.toDataURL('image/png');
+  scene.remove(av.root);
+  disposeTree(av.root);
+  return url;
 }
