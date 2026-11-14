@@ -687,7 +687,9 @@ export async function loadFarms(scene, colliders) {
     const [g0, g1] = kit.gap.map(v => v * S), fz = kit.frontZ * S + oz;
     // Väggarna är tjocka (bräder + stolpar på insidan), så kollisionen går en bit in i ladan
     const TW = 0.55 * S, TF = 0.6 * S, fzc = fz - TF / 2 + T / 2;
-    box(f, 0, z0 + oz + TW / 2, x1 - x0, TW, top);                    // bakvägg
+    // Modellen har en innervägg ~1 m framför bakväggen: allt bakom den är massivt
+    const zi = -2.97 * S + oz, zb = z0 + oz;
+    box(f, 0, (zb + zi + 0.15) / 2, x1 - x0, zi + 0.15 - zb, top);    // bakvägg + innervägg
     box(f, x0 + TW / 2, (z0 + z1) / 2 + oz, TW, z1 - z0, top);        // vänster
     box(f, x1 - TW / 2, (z0 + z1) / 2 + oz, TW, z1 - z0, top);        // höger
     box(f, (x0 + g0) / 2, fzc, g0 - x0, TF, top);                     // fram vänster
@@ -705,7 +707,7 @@ export async function loadFarms(scene, colliders) {
     g.add(floor);
 
     // Höbalar inne i ladan
-    for (const [hx, hz, hy, r] of [[x0 + 1.2, z0 + oz + 1.0, 0.35 + FLOOR, 0], [x0 + 2.6, z0 + oz + 1.0, 0.35 + FLOOR, 0], [x0 + 1.9, z0 + oz + 1.0, 1.05 + FLOOR, 0], [x1 - 1.0, z0 + oz + 1.6, 0.35 + FLOOR, Math.PI / 2]]) {
+    for (const [hx, hz, hy, r] of [[x0 + TW + 0.75, zi + 0.75, 0.35 + FLOOR, 0], [x0 + TW + 2.15, zi + 0.75, 0.35 + FLOOR, 0], [x0 + TW + 1.45, zi + 0.75, 1.05 + FLOOR, 0], [x1 - TW - 0.6, zi + 1.4, 0.35 + FLOOR, Math.PI / 2]]) {
       const m = new THREE.Mesh(hay, hayMat);
       m.position.set(hx, hy, hz); m.rotation.y = r; m.castShadow = m.receiveShadow = true;
       g.add(m);
@@ -716,15 +718,15 @@ export async function loadFarms(scene, colliders) {
 
     const [dx, dz] = toWorld(f, (g0 + g1) / 2, fz + 1.2);
     const inner = (() => {
-      const a = toWorld(f, x0, z0 + oz), c = toWorld(f, x1, z1 + oz);
+      const a = toWorld(f, x0 + TW, zi + 0.15), c = toWorld(f, x1 - TW, fz - TF + 0.2);
       return { minX: Math.min(a[0], c[0]) + 0.2, maxX: Math.max(a[0], c[0]) - 0.2, minZ: Math.min(a[1], c[1]) + 0.2, maxZ: Math.max(a[1], c[1]) - 0.2 };
     })();
     {
       // Kistplatser i ladan: vid bakväggen, stora ladan även längs sidorna
       // 3 av 5 möjliga ställen per lada, olika ställen i olika lador
       const y = f.h - 0.05 + FLOOR, mz = (z0 + z1) / 2 + oz, k = barns.length;
-      const cand = [[0, z0 + oz + 1.1, 0], [x0 + 1.2, mz, Math.PI / 2], [x1 - 1.2, mz, -Math.PI / 2],
-        [x0 + 1.2, z1 + oz - 1.5, Math.PI / 2], [x1 - 1.2, z1 + oz - 1.5, -Math.PI / 2]];
+      const cand = [[0.35 * S, zi + 1.0, 0], [x0 + TW + 0.8, mz, Math.PI / 2], [x1 - TW - 0.8, mz, -Math.PI / 2],
+        [x0 + TW + 0.8, fz - TF - 0.9, Math.PI / 2], [x1 - TW - 0.8, fz - TF - 0.9, -Math.PI / 2]];
       for (const i of [k % 5, (k + 2) % 5, (k + 4) % 5]) {
         const [lx, lz, r] = cand[i], [cx, cz] = toWorld(f, lx, lz);
         chestSpots.push({ x: cx, z: cz, y, rot: f.yaw + r, where: 'lada', bid: 'b' + k });
