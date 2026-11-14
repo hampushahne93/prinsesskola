@@ -188,7 +188,8 @@
     { id: 'spade', ic: '🪏', label: 'Spade', key: 1, tip: 'Gräv efter skatter i Guldmyntsjakten.' },
     { id: 'yxa', ic: '🪓', label: 'Yxa', key: 2, tip: 'En stark yxa att ha i handen.' },
     { id: 'fjader', ic: '🪶', label: 'Fjäder', key: 3, tip: 'Du hoppar dubbelt så högt!' },
-    { id: 'inlines', ic: '🛼', label: 'Inlines', key: 4, tip: 'Du springer dubbelt så snabbt!' }
+    { id: 'inlines', ic: '🛼', label: 'Inlines', key: 4, tip: 'Du springer dubbelt så snabbt!' },
+    { id: 'spo', ic: '🎣', label: 'Fiskespö', key: 5, price: 500, tip: 'Ta med fiskespöt till sjöarna!' }
   ];
 
   /* ---------- Ljud ---------- */
@@ -547,7 +548,7 @@
 
   let shopItem = null;
   function openShop(key, o) {
-    const gear = key === 'gear', PRICE = gear ? GEAR_PRICE : 100;
+    const gear = key === 'gear', PRICE = gear ? (o.price || GEAR_PRICE) : 100;
     shopItem = { key, o, price: PRICE };
     const soon = !!o.soon;
     $('shop').className = 'shop show' + (soon ? ' soon ' + o.soon : '');
@@ -663,7 +664,7 @@
     } else if (tab === 'drakt') {
       o.append(h4('Färdiga dräkter'), note('Välj "Egen" för att designa själv. Hattar går att ha till alla dräkter.'), styleGrid(OPT.outfit, 'outfit'));
     } else if (tab === 'prylar') {
-      o.append(h4('Prylar till Guldmyntsjakten'), note(`Varje pryl kostar ${GEAR_PRICE} 🪙. När du har köpt den trycker du på siffran i Guldmyntsjakten för att ta på den – tryck igen för att ta av.`));
+      o.append(h4('Prylar till Guldmyntsjakten'), note(`Prylarna kostar ${GEAR_PRICE} 🪙 (fiskespöt 500 🪙). När du har köpt den trycker du på siffran i Guldmyntsjakten för att ta på den – tryck igen för att ta av.`));
       const g = document.createElement('div');
       g.className = 'styles';
       const p = owner();
@@ -672,7 +673,7 @@
         const b = document.createElement('button');
         b.className = 'style' + (gearShown === it.id ? ' on' : '') + (owned ? '' : ' locked');
         b.innerHTML = `<span class="ic">${it.ic}</span>${it.label}` +
-          (owned ? `<span class="tag ownTag">✅ Tangent ${it.key}</span>` : `<span class="tag">🔒 ${GEAR_PRICE} 🪙</span>`);
+          (owned ? `<span class="tag ownTag">✅ Tangent ${it.key}</span>` : `<span class="tag">🔒 ${it.price || GEAR_PRICE} 🪙</span>`);
         b.onclick = () => {
           gearShown = gearShown === it.id ? null : it.id;     // visa prylen på gubben
           stage && stage.showGear && stage.showGear(gearShown);

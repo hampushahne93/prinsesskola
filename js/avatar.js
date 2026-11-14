@@ -472,6 +472,27 @@ function buildGear(name, A, restOf) {
     const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0.55, 1).normalize());
     attach('RightHand', g, pos, q);
   }
+  if (name === 'spo') {
+    // Fiskespö: långt smalt spö, rulle vid handtaget och en lina med flöte från toppen
+    const hand = tp('RightHand'), fing = restOf.RightHandIndex1 ? tp('RightHandIndex1') : hand.clone();
+    const g = new THREE.Group(), L = 1.45 * U;
+    const rod = mesh(new THREE.CylinderGeometry(0.006 * U, 0.016 * U, L, 8), mat('#2f6db5', { roughness: 0.4 }), 0, L * 0.42, 0);
+    g.add(rod, mesh(new THREE.CylinderGeometry(0.024 * U, 0.024 * U, 0.22 * U, 10), mat('#3a2a1e', { roughness: 0.9 }), 0, -0.04 * U, 0));
+    const reel = mesh(new THREE.CylinderGeometry(0.045 * U, 0.045 * U, 0.035 * U, 16), metal, 0.05 * U, 0.1 * U, 0);
+    reel.rotation.z = Math.PI / 2;
+    g.add(reel, mesh(new THREE.BoxGeometry(0.03 * U, 0.008 * U, 0.008 * U), grip, 0.08 * U, 0.1 * U, 0.03 * U));
+    const tipY = L * 0.92, lineLen = 0.75 * U;
+    // linan hänger ner från toppen (i spöets lokala riktning "bakåt-ner" så den ser hängande ut)
+    const line = new THREE.Group(); line.position.set(0, tipY, 0); line.rotation.x = 2.3;
+    line.add(mesh(new THREE.CylinderGeometry(0.0025 * U, 0.0025 * U, lineLen, 4), mat('#f4f4f4'), 0, lineLen / 2, 0));
+    const bob = new THREE.Group(); bob.position.y = lineLen;
+    bob.add(mesh(new THREE.SphereGeometry(0.035 * U, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), mat('#e23b4e', { emissive: '#e23b4e', emissiveIntensity: 0.2 }), 0, 0, 0));
+    const bot = mesh(new THREE.SphereGeometry(0.035 * U, 12, 8, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), mat('#ffffff'), 0, 0, 0);
+    bob.add(bot); line.add(bob); g.add(line);
+    const pos = hand.clone().addScaledVector(fing.clone().sub(hand).normalize(), 0.05 * U);
+    const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0.8, 0.75).normalize());
+    attach('RightHand', g, pos, q);
+  }
   if (name === 'fjader') {
     const hb = A.parts.head, c = hb.getCenter(new THREE.Vector3()), s = hb.getSize(new THREE.Vector3());
     const g = new THREE.Group();

@@ -68,7 +68,8 @@ const GEAR = [
   { id: 'spade', key: '1', name: 'Spade', icon: '<svg viewBox="0 0 40 40"><rect x="18" y="4" width="4" height="20" rx="2" fill="#b07a48"/><rect x="14" y="2" width="12" height="5" rx="2.5" fill="#e23b4e"/><path d="M11 22h18v7c0 5-4 9-9 9s-9-4-9-9z" fill="#cfd5df" stroke="#8a93a6" stroke-width="1.5"/></svg>', hand: true },
   { id: 'yxa', key: '2', name: 'Yxa', icon: '🪓', hand: true },
   { id: 'fjader', key: '3', name: 'Fjäder', icon: '🪶', tip: 'Hoppa dubbelt så högt' },
-  { id: 'inlines', key: '4', name: 'Inlines', icon: '🛼', tip: 'Spring dubbelt så snabbt' }
+  { id: 'inlines', key: '4', name: 'Inlines', icon: '🛼', tip: 'Spring dubbelt så snabbt' },
+  { id: 'spo', key: '5', name: 'Fiskespö', icon: '🎣', hand: true, price: 500 }
 ];
 const owns = id => !!(player && player.unlocked && player.unlocked.includes('gear:' + id));
 const gearOn = new Set(player && Array.isArray(player.gearOn) ? player.gearOn.filter(owns) : []);
@@ -89,7 +90,7 @@ let toastTm = 0;
 function toast(t) { const el = $('toast'); el.textContent = t; el.classList.add('show'); clearTimeout(toastTm); toastTm = setTimeout(() => el.classList.remove('show'), 2600); }
 function toggleGear(id) {
   const g = GEAR.find(x => x.id === id);
-  if (!owns(id)) { toast(`🔒 ${g.name} låser du upp under Ändra gubbe → Prylar (1000 🪙)`); return; }
+  if (!owns(id)) { toast(`🔒 ${g.name} låser du upp under Ändra gubbe → Prylar (${g.price || 1000} 🪙)`); return; }
   if (gearOn.has(id)) { gearOn.delete(id); ch && ch.setGear(id, false); toast(`${g.name} av`); }
   else {
     if (g.hand) for (const o of GEAR) if (o.hand && gearOn.has(o.id)) { gearOn.delete(o.id); ch && ch.setGear(o.id, false); }
