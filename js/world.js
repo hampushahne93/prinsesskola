@@ -57,7 +57,8 @@ const townDist = (x, z) => Math.hypot(Math.max(0, Math.abs(x - TOWN.x) - TOWN.hw
 export const HOUSE_S = 7.5;
 export const HOUSE_KITS = {
   1: { walls: [-0.56, 0.56, -0.58, 0.56], door: [-0.072, 0.072], floor: 0.089, ext: [-0.61, 0.61, -0.66, 1.06],
-       porch: { x: [-0.538, 0.538], z: [0.56, 1.058], y: 0.044 }, posts: [[-0.5, 1.0], [0.5, 1.0]] },
+       porch: [[-0.538, 0.538, 0.936, 1.058, 0.044], [-0.538, 0.538, 0.55, 0.936, 0.089]],
+       posts: [[-0.5, 0.92], [0.5, 0.92]] },   // porch: trappsteg + däck
   2: { walls: [-0.54, 0.54, -0.61, 0.614], door: [-0.104, 0.074], floor: 0.059, ext: [-0.63, 0.62, -0.73, 0.71] },
   3: { walls: [-0.54, 0.54, -0.61, 0.614], door: [-0.104, 0.074], floor: 0.059, ext: [-0.63, 0.62, -0.73, 0.71] },
   4: { walls: [-0.241, 0.93, -0.61, 0.614], door: [0.296, 0.474], floor: 0.054, ext: [-1.14, 1.02, -0.72, 0.71], garage: [-1.04, -0.241] }
@@ -769,9 +770,9 @@ export async function loadFarms(scene, colliders) {
     box(f, W((d1 + x1) / 2), fz, W(x1 - d1), T, top);
     const doorCol = box(f, W((d0 + d1) / 2), fz, W(d1 - d0), T, top, { active: true });
     if (K.posts) for (const [px, pz] of K.posts) { const [wx, wz] = toWorld(f, W(px), W(pz)); colliders.push({ x: wx, z: wz, r: 0.25 }); }
-    if (K.porch) {
-      const a = toWorld(f, W(K.porch.x[0]), W(K.porch.z[0])), c = toWorld(f, W(K.porch.x[1]), W(K.porch.z[1]));
-      platforms.push({ minX: Math.min(a[0], c[0]), maxX: Math.max(a[0], c[0]), minZ: Math.min(a[1], c[1]), maxZ: Math.max(a[1], c[1]), y: f.h + W(K.porch.y) });
+    if (K.porch) for (const [px0, px1, pz0, pz1, py] of K.porch) {
+      const a = toWorld(f, W(px0), W(pz0)), c = toWorld(f, W(px1), W(pz1));
+      platforms.push({ minX: Math.min(a[0], c[0]), maxX: Math.max(a[0], c[0]), minZ: Math.min(a[1], c[1]), maxZ: Math.max(a[1], c[1]), y: f.h + W(py) });
     }
 
     // Trägolv och en matta
