@@ -4,6 +4,7 @@
    kristaller, en bergsring runt kanten och rymdhimmel.
    ========================================================= */
 import * as THREE from 'three';
+import { mergeStatic } from './merge.js';
 import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
 
 export const HALF = 135;              // kartan går från -135 till +135 meter
@@ -350,6 +351,27 @@ export function buildWorld(scene, { lowSpec = false } = {}) {
   };
   const M = new THREE.Matrix4(), Q = new THREE.Quaternion(), S = new THREE.Vector3(), P = new THREE.Vector3(), UP = new THREE.Vector3(0, 1, 0);
 
+  /* Instanser delas upp i rutor över kartan: rutor utanför bild ritas inte (frustum culling),
+     och rutor långt bort (i dimman) göms. Samma utseende, mycket mindre att rita. */
+  const chunks = [];
+  function chunked(geo, mat, items, { far = 150, receive = false, cast = false, CH = 64 } = {}) {
+    const byCell = new Map();
+    for (const it of items) {
+      const e = it.m.elements, k = Math.floor(e[12] / CH) * 1000 + Math.floor(e[14] / CH);
+      let a = byCell.get(k); if (!a) byCell.set(k, a = []);
+      a.push(it);
+    }
+    for (const list of byCell.values()) {
+      const im = new THREE.InstancedMesh(geo, mat, list.length);
+      list.forEach((it, i) => { im.setMatrixAt(i, it.m); if (it.c) im.setColorAt(i, it.c); });
+      im.computeBoundingSphere();
+      im.receiveShadow = receive; im.castShadow = cast;
+      scene.add(im);
+      const bs = im.boundingSphere;
+      chunks.push({ im, x: bs.center.x, z: bs.center.z, r: bs.radius, far });
+    }
+  }
+
   /* ---------- Gräs ---------- */
   {
     const blades = new THREE.BufferGeometry(), bp = [], bc = [];
@@ -364,7 +386,7 @@ export function buildWorld(scene, { lowSpec = false } = {}) {
     blades.computeVertexNormals();
     const count = lowSpec ? 22000 : 48000;
     const gm = windify(new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }), 0.16);
-    const grass = new THREE.InstancedMesh(blades, gm, count);
+    const items = [];
     let n = 0;
     const tint = new THREE.Color();
     avoidFarm = -10;
@@ -376,22 +398,19 @@ export function buildWorld(scene, { lowSpec = false } = {}) {
       Q.setFromAxisAngle(UP, R() * Math.PI * 2);
       const k = 0.7 + R() * 0.9;
       S.set(k, k * (0.8 + R() * 0.6), k);
-      grass.setMatrixAt(n, M.compose(P.set(x, h - 0.03, z), Q, S));
       groundColor(x, z, h, 0, tint).multiplyScalar(1.6);
-      grass.setColorAt(n, tint);
+      items.push({ m: M.compose(P.set(x, h - 0.03, z), Q, S).clone(), c: tint.clone() });
       n++;
     }
-    grass.count = n;
     avoidFarm = 4;
-    grass.receiveShadow = true;
-    scene.add(grass);
+    chunked(blades, gm, items, { far: 150, receive: true });
   }
 
   /* ---------- Blommor ---------- */
   {
     const n = 2600, g = new THREE.IcosahedronGeometry(0.09, 0);
     g.translate(0, 0.35, 0);
-    const f = new THREE.InstancedMesh(g, windify(new THREE.MeshLambertMaterial({ color: '#ffffff' }), 0.1), n);
+    const fmat = windify(new THREE.MeshLambertMaterial({ color: '#ffffff' }), 0.1), items = [];
     const cols = ['#ff5ccf', '#ffd84a', '#ffffff', '#8a5cff', '#3ee8ff', '#ff7a3d'].map(C);
     let k = 0;
     // blommorna växer i små klungor
@@ -402,12 +421,11 @@ export function buildWorld(scene, { lowSpec = false } = {}) {
       for (let j = 0; j < 14 && k < n; j++) {
         const x = s[0] + (R() - 0.5) * 6, z = s[2] + (R() - 0.5) * 6, h = heightAt(x, z);
         if (h < WATER + 0.6) continue;
-        f.setMatrixAt(k, M.compose(P.set(x, h, z), Q.identity(), S.setScalar(0.8 + R() * 0.6)));
-        f.setColorAt(k, c);
+        items.push({ m: M.compose(P.set(x, h, z), Q.identity(), S.setScalar(0.8 + R() * 0.6)).clone(), c });
         k++;
       }
     }
-    scene.add(f);
+    chunked(g, fmat, items, { far: 120, CH: 90 });
   }
 
   /* ---------- Stenar ---------- */
@@ -467,12 +485,13 @@ export function buildWorld(scene, { lowSpec = false } = {}) {
   }
   // Rita ett träd lutat (fall = 0..1) runt stammens fot, eller dölj det
   const TM = new THREE.Matrix4(), TR = new THREE.Matrix4(), TT = new THREE.Matrix4(), TI = new THREE.Matrix4(), ZERO = new THREE.Matrix4().makeScale(0, 0, 0);
+  const TAX = new THREE.Vector3(), TW = new THREE.Matrix4(), R2 = new THREE.Matrix4();   // återanvänds (inget skräp per bildruta)
   trees.pose = (tree, angle, axisX, axisZ, wobble = 0) => {
-    const ax = new THREE.Vector3(axisX, 0, axisZ).normalize();
-    TR.makeRotationAxis(ax, angle);
-    if (wobble) TR.multiply(new THREE.Matrix4().makeRotationZ(wobble));
+    TAX.set(axisX, 0, axisZ).normalize();
+    TR.makeRotationAxis(TAX, angle);
+    if (wobble) TR.multiply(TW.makeRotationZ(wobble));
     TT.makeTranslation(tree.x, tree.y, tree.z); TI.makeTranslation(-tree.x, -tree.y, -tree.z);
-    const R2 = TT.clone().multiply(TR).multiply(TI);
+    R2.copy(TT).multiply(TR).multiply(TI);
     trees.trunks.setMatrixAt(tree.ti, TM.copy(R2).multiply(tree.base[0]));
     trees.leaves.setMatrixAt(tree.li, TM.copy(R2).multiply(tree.base[1]));
     trees.leaves.setMatrixAt(tree.li + 1, TM.copy(R2).multiply(tree.base[2]));
@@ -484,29 +503,48 @@ export function buildWorld(scene, { lowSpec = false } = {}) {
   };
 
   /* ---------- Lysande kristaller (lite rymdkänsla) ---------- */
+  // En instansmesh per färg (3 ritanrop i stället för ett per kristallgrupp). Grupperna snurrar långsamt.
   const crystals = [];
+  let crystalSets = [];
   {
     const g = new THREE.OctahedronGeometry(1, 0);
     const cols = ['#3ee8ff', '#ff5ccf', '#8a5cff'];
+    const sets = cols.map(c => ({ mat: new THREE.MeshStandardMaterial({ color: c, emissive: c, emissiveIntensity: 0.9, roughness: 0.2, metalness: 0.1, flatShading: true }), parts: [] }));
+    const o = new THREE.Object3D();
     for (let i = 0; i < 26; i++) {
       const s = spot(3, 0.8); if (!s) continue;
-      const c = cols[i % 3], grp = new THREE.Group();
-      const m = new THREE.MeshStandardMaterial({ color: c, emissive: c, emissiveIntensity: 0.9, roughness: 0.2, metalness: 0.1, flatShading: true });
+      const set = sets[i % 3], grp = { x: s[0], y: s[1] - 0.1, z: s[2], i, parts: [] };
       for (let j = 0; j < 4; j++) {
-        const cr = new THREE.Mesh(g, m);
         const k = 0.35 + R() * 0.7;
-        cr.scale.set(k * 0.45, k * 1.6, k * 0.45);
-        cr.position.set((R() - 0.5) * 1.2, k * 1.1, (R() - 0.5) * 1.2);
-        cr.rotation.set((R() - 0.5) * 0.6, R() * 3, (R() - 0.5) * 0.6);
-        cr.castShadow = true;
-        grp.add(cr);
+        o.scale.set(k * 0.45, k * 1.6, k * 0.45);
+        o.position.set((R() - 0.5) * 1.2, k * 1.1, (R() - 0.5) * 1.2);
+        o.rotation.set((R() - 0.5) * 0.6, R() * 3, (R() - 0.5) * 0.6);
+        o.updateMatrix();
+        set.parts.push({ grp, local: o.matrix.clone() });
       }
-      grp.position.set(s[0], s[1] - 0.1, s[2]);
-      scene.add(grp);
       crystals.push(grp);
       colliders.push({ x: s[0], z: s[2], r: 0.9 });
     }
+    crystalSets = sets.map(set => {
+      const im = new THREE.InstancedMesh(g, set.mat, set.parts.length);
+      im.castShadow = true;
+      im.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      scene.add(im);
+      return { im, parts: set.parts };
+    });
   }
+  const CM = new THREE.Matrix4(), CR = new THREE.Matrix4();
+  function spinCrystals(t) {
+    for (const { im, parts } of crystalSets) {
+      parts.forEach((p, i) => {
+        CR.makeRotationY(t * 0.2 + p.grp.i).setPosition(p.grp.x, p.grp.y, p.grp.z);
+        im.setMatrixAt(i, CM.multiplyMatrices(CR, p.local));
+      });
+      im.instanceMatrix.needsUpdate = true;
+      if (!im.boundingSphere) { im.computeBoundingSphere(); im.boundingSphere.radius += 2; }
+    }
+  }
+  spinCrystals(0);
 
   /* ---------- 30 startplatser för gubben (alltid samma) ---------- */
   const spawns = [{ x: 0, z: 0 }];
@@ -521,11 +559,43 @@ export function buildWorld(scene, { lowSpec = false } = {}) {
     }
   }
 
+  /* ---------- Rutnät för hinder: kolla bara de som ligger nära (mycket snabbare än alla ~750) ----------
+     Djurens hinder (animal: true) rör sig och hålls utanför rutnätet. */
+  const CELL = 8, grid = new Map();
+  let built = -1, stamp = 0;
+  const cellKey = (ix, iz) => ix * 4096 + iz;
+  function rebuild() {
+    grid.clear();
+    for (const c of colliders) {
+      if (c.animal) continue;
+      const ex = c.box ? c.hw : c.r, ez = c.box ? c.hd : c.r;
+      for (let ix = Math.floor((c.x - ex) / CELL); ix <= Math.floor((c.x + ex) / CELL); ix++)
+        for (let iz = Math.floor((c.z - ez) / CELL); iz <= Math.floor((c.z + ez) / CELL); iz++) {
+          const k = cellKey(ix, iz);
+          let a = grid.get(k); if (!a) grid.set(k, a = []);
+          a.push(c);
+        }
+    }
+    built = colliders.length;
+  }
+  const found = [];
+  function near(x, z, r) {
+    if (built !== colliders.length) rebuild();
+    found.length = 0; stamp++;
+    for (let ix = Math.floor((x - r) / CELL); ix <= Math.floor((x + r) / CELL); ix++)
+      for (let iz = Math.floor((z - r) / CELL); iz <= Math.floor((z + r) / CELL); iz++) {
+        const a = grid.get(cellKey(ix, iz));
+        if (a) for (const c of a) if (c._q !== stamp) { c._q = stamp; found.push(c); }
+      }
+    return found;
+  }
+
   return {
-    sun, terrain, colliders, trees, spawns, slopeAt,
-    update(t) {
+    sun, terrain, colliders, trees, spawns, slopeAt, near,
+    update(t, cam) {
       uniforms.uTime.value = t;
-      crystals.forEach((c, i) => { c.rotation.y = t * 0.2 + i; });
+      if (cam) for (const c of chunks) c.im.visible = Math.hypot(cam.x - c.x, cam.z - c.z) - c.r < c.far;
+      spinCrystals(t);
     },
     // Färgkarta till minikartan
     minimap(size = 180) {
@@ -555,18 +625,23 @@ const PROP_COLORS = {
 // Hustextur: 2x4 färgfält (vägg, tak, trä, grått, glas, dörr, sockel, vitt). Vägg och tak får olika färger.
 const WALLS = ['#ece7d9', '#bfe3ff', '#ffd1e1', '#c9f2d0', '#fff1a8', '#e0d4ff', '#ffd9b0', '#f4f4f4'];
 const ROOFS = ['#494747', '#de5531', '#3d6fb5', '#3f8a4f', '#7a4a8f', '#b8743c', '#2f5d6e'];
-const houseMats = {};
-function houseMaterial(i) {
-  const wall = WALLS[i % WALLS.length], roof = ROOFS[(i * 3 + 1) % ROOFS.length], key = wall + roof;
-  if (houseMats[key]) return houseMats[key];
-  const c = document.createElement('canvas'); c.width = c.height = 32;
-  const g = c.getContext('2d');
-  [[wall, roof], ['#a1542f', '#a9a9a9'], ['#ccf7f8', '#78452b'], ['#3f3f3f', '#efefef']].forEach((r, y) =>
-    r.forEach((col, x) => { g.fillStyle = col; g.fillRect(x * 16, y * 8, 16, 8); }));
-  const t = new THREE.CanvasTexture(c);
-  t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter; t.generateMipmaps = false;
-  t.colorSpace = THREE.SRGBColorSpace;
-  return (houseMats[key] = new THREE.MeshLambertMaterial({ map: t, side: THREE.DoubleSide, flatShading: true }));
+// Husens färger bakas in i hörnen (en färg per triangel från färgfältet den pekar på) – då kan hela staden
+// ritas med ett gemensamt material i stället för ett per hus.
+const HOUSE_VC = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide, flatShading: true });
+function bakeHouse(geo, i) {
+  const wall = WALLS[i % WALLS.length], roof = ROOFS[(i * 3 + 1) % ROOFS.length];
+  const pal = [[wall, roof], ['#a1542f', '#a9a9a9'], ['#ccf7f8', '#78452b'], ['#3f3f3f', '#efefef']].map(r => r.map(c => new THREE.Color(c)));
+  const g = geo.index ? geo.toNonIndexed() : geo.clone();
+  const uv = g.attributes.uv, n = g.attributes.position.count, col = new Float32Array(n * 3);
+  for (let f = 0; f < n; f += 3) {
+    const u = (uv.getX(f) + uv.getX(f + 1) + uv.getX(f + 2)) / 3, v = (uv.getY(f) + uv.getY(f + 1) + uv.getY(f + 2)) / 3;
+    const cx = Math.min(1, Math.max(0, Math.floor(u * 2))), cy = Math.min(3, Math.max(0, Math.floor((1 - v) * 4)));
+    const c = pal[cy][cx];
+    for (let k = 0; k < 3; k++) { col[(f + k) * 3] = c.r; col[(f + k) * 3 + 1] = c.g; col[(f + k) * 3 + 2] = c.b; }
+  }
+  g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  g.deleteAttribute('uv');
+  return g;
 }
 function loadOBJ(name) {
   return new OBJLoader().loadAsync(new URL(`../assets/props/${name}.obj`, import.meta.url).href).then(obj => {
@@ -586,6 +661,7 @@ export async function loadFarms(scene, colliders) {
   const [barn, bigBarn, windmill, fence1, fence2, silo, siloHouse, coop, ...houseSrc] = await Promise.all(
     ['Barn', 'BigBarn', 'Windmill', 'Fence', 'Fence2', 'Silo', 'Silo_House', 'ChickenCoop', 'House1', 'House2', 'House3', 'House4'].map(loadOBJ));
   const platforms = [];   // ytor man kan stå på (verandor)
+  const sceneBefore = new Set(scene.children);   // allt som läggs till nedan slås ihop i slutet
   const chestSpots = [];  // 100 fasta platser där kistor kan dyka upp
   // Silos och hönshus (silon står i modellens origo, huset åt -x)
   const addProp = (f, src, lx, lz, rot = 0) => {
@@ -792,17 +868,18 @@ export async function loadFarms(scene, colliders) {
   }
 
   /* ---------- Staden: hus man kan gå in i ---------- */
-  const rugMats = ['#e23b4e', '#3d6fb5', '#8a5cff', '#2fae6a'].map(c => new THREE.MeshLambertMaterial({ color: c }));
+  const rugMats = ['#e23b4e', '#3d6fb5', '#8a5cff', '#2fae6a'].map(c => new THREE.MeshLambertMaterial({ color: c, side: THREE.DoubleSide, flatShading: true }));
+  const houseFloorMat = new THREE.MeshLambertMaterial({ map: plankTex });
+  const townRoot = new THREE.Group(); scene.add(townRoot);   // hela staden slås ihop i slutet
   for (const H of TOWN.houses) {
     const K = HOUSE_KITS[H.type], S = HOUSE_S;
     const f = { x: H.x, z: H.z, h: TOWN.h, yaw: H.yaw };
     const g = new THREE.Group();
-    g.position.set(f.x, f.h, f.z); g.rotation.y = f.yaw; scene.add(g);
+    g.position.set(f.x, f.h, f.z); g.rotation.y = f.yaw; townRoot.add(g);
     const m = houseSrc[H.type - 1].clone(true);
     m.scale.setScalar(S);
-    const mat = houseMaterial(H.color);
     const doors = [];
-    m.traverse(o => { if (o.isMesh) o.material = mat; });
+    m.traverse(o => { if (o.isMesh) { o.geometry = bakeHouse(o.geometry, H.color); o.material = HOUSE_VC; } });
     const [d0, d1] = K.door, [x0, x1, z0, z1] = K.walls;
     const doorMesh = m.children.find(o => o.name === 'Door');
     if (doorMesh) {
@@ -832,8 +909,9 @@ export async function loadFarms(scene, colliders) {
 
     // Trägolv och en matta
     const FY = W(K.floor) + 0.02, fw = W(x1 - x0) - 0.4, fd = W(z1 - z0) - 0.4;
-    const ft = plankTex.clone(); ft.needsUpdate = true; ft.repeat.set(fw / 4, fd / 4);
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(fw, fd), new THREE.MeshLambertMaterial({ map: ft }));
+    const fg = new THREE.PlaneGeometry(fw, fd), fuv = fg.attributes.uv;
+    for (let k = 0; k < fuv.count; k++) fuv.setXY(k, fuv.getX(k) * fw / 4, fuv.getY(k) * fd / 4);   // plankornas storlek i geometrin → ett gemensamt material
+    const floor = new THREE.Mesh(fg, houseFloorMat);
     floor.rotation.x = -Math.PI / 2; floor.position.set(W((x0 + x1) / 2), FY, W((z0 + z1) / 2)); floor.receiveShadow = true;
     g.add(floor);
     const rug = new THREE.Mesh(new THREE.PlaneGeometry(Math.min(3.2, fw * 0.5), Math.min(2.2, fd * 0.4)), rugMats[H.color % rugMats.length]);
@@ -877,6 +955,13 @@ export async function loadFarms(scene, colliders) {
       if (!free(x, z) || rockHeightAt(x, z) > h - 0.5) continue;
       chestSpots.push({ x, z, y: h, rot: R() * Math.PI * 2, where: 'ute' });
     }
+  }
+
+  // Slå ihop allt stillastående per gård/hus till några få delar (dörrar och vingar rör sig och hålls utanför)
+  {
+    const moving = new Set(spinners);
+    const keep = o => o.userData.hinge || o.userData.slide !== undefined || moving.has(o);
+    for (const o of scene.children) if (!sceneBefore.has(o)) mergeStatic(o, keep);
   }
 
   const ease = t => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;

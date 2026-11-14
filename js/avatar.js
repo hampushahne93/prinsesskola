@@ -731,7 +731,7 @@ async function createCharacter(look, gender) {
         gear[name] = buildGear(name, A, restOf);
         for (const { bone, obj } of gear[name]) bones[bone] && bones[bone].add(obj);
       } else if (!on && gear[name]) {
-        for (const { obj } of gear[name]) { obj.parent && obj.parent.remove(obj); obj.traverse(o => { if (o.isMesh) { o.geometry.dispose(); o.material.dispose(); } }); }
+        for (const { obj } of gear[name]) { obj.parent && obj.parent.remove(obj); obj.traverse(o => { if (o.isMesh) { o.geometry.dispose(); [].concat(o.material).forEach(m => m.dispose()); } }); }
         delete gear[name];
       }
     },
@@ -771,13 +771,16 @@ async function createCharacter(look, gender) {
     },
     dispose() {
       mixer.stopAllAction();
+      mixer.uncacheRoot(root);
       texOpen && texOpen.dispose();
       texClosed && texClosed.dispose();
       skinned.material.dispose();
+      skinned.skeleton && skinned.skeleton.dispose();          // bentexturen (annars läcker GPU-minne vid varje ombyggnad)
+      const freeMat = m => { for (const k in m) if (m[k] && m[k].isTexture) m[k].dispose(); m.dispose(); };
       root.traverse(o => {
-        if (o.isMesh && !o.isSkinnedMesh) { o.geometry.dispose(); o.material.dispose(); }
-        if (o.isSprite) { o.material.map && o.material.map.dispose(); o.material.dispose(); }
+        if ((o.isMesh && !o.isSkinnedMesh) || o.isSprite) { o.geometry && !o.isSprite && o.geometry.dispose(); [].concat(o.material).forEach(freeMat); }
       });
+      root.removeFromParent();
     }
   };
 }
@@ -1005,6 +1008,8 @@ export function createStage(canvas, opts = {}) {
       tween = 1.4;
     },
     bounce() { ch && ch.play('jump', 0.1); },
+    // För felsökning: hur mycket ligger i grafikminnet
+    gpuInfo() { return { geometries: renderer.info.memory.geometries, textures: renderer.info.memory.textures, programs: renderer.info.programs.length, frames: renderer.info.render.frame }; },
     wave() { ch && ch.play('jump', 0.1); },
     play(name) { ch && ch.play(name); },
     emote(name) { const d = ch ? ch.emote(name) : 0; if (mini) showT = d + 3; return d; },

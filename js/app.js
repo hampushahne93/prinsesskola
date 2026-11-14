@@ -806,7 +806,8 @@
       if (document.body.classList.contains('onboarding')) renderOpts();
       return Save.get(p.id).coins;
     },
-    emote(name) { return meStage ? meStage.emote(name) : 0; }
+    emote(name) { return meStage ? meStage.emote(name) : 0; },
+    get _stages() { return { me: meStage, designer: stage }; }
   };
 
   /* ---------- Start ---------- */

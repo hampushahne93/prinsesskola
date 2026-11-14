@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
+import { mergeSkinned } from './merge.js';
 import { heightAt, FARMS, TOWN, WATER, PLAY } from './world.js';
 
 // Ungefärlig höjd i meter för varje djur
@@ -19,11 +20,12 @@ export async function spawnAnimals(scene, world) {
     const g = await loader.loadAsync(new URL(`../assets/animals/${k}.glb`, import.meta.url).href);
     g.scene.traverse(o => {
       if (!o.isMesh) return;
-      o.castShadow = true; o.frustumCulled = false;
+      o.castShadow = true;
       // Samma sorts ljussättning som resten av världen (annars blir djuren för mörka)
       const conv = m => new THREE.MeshLambertMaterial({ color: m.color.clone().multiplyScalar(1.25), flatShading: true });
       o.material = Array.isArray(o.material) ? o.material.map(conv) : conv(o.material);
     });
+    mergeSkinned(g.scene);                       // en mesh + ett skelett per djur
     const box = new THREE.Box3().setFromObject(g.scene, true);
     src[k] = { scene: g.scene, clips: g.animations, scale: HEIGHT[k] / Math.max(0.01, box.max.y - box.min.y) };
   }));
@@ -32,8 +34,8 @@ export async function spawnAnimals(scene, world) {
   const blocked = (x, z, r) => {
     if (Math.abs(x) > PLAY - 4 || Math.abs(z) > PLAY - 4) return true;
     if (heightAt(x, z) < WATER + 0.3) return true;
-    for (const c of colliders) {
-      if (c.animal || c.active === false) continue;
+    for (const c of world.near(x, z, r + 0.5)) {
+      if (c.active === false) continue;
       if (c.box) { if (Math.abs(x - c.x) < c.hw + r && Math.abs(z - c.z) < c.hd + r) return true; }
       else if (Math.hypot(x - c.x, z - c.z) < c.r + r) return true;
     }
@@ -108,12 +110,16 @@ export async function spawnAnimals(scene, world) {
   const WILD_LIST = ['Deer', 'Stag', 'Fox', 'Deer', 'Wolf', 'Deer', 'Fox', 'Stag'];
   homes.forEach((h, i) => add(WILD_LIST[i % WILD_LIST.length], h));
 
-  const tmp = new THREE.Vector3();
+  const frustum = new THREE.Frustum(), pv = new THREE.Matrix4(), sphere = new THREE.Sphere();
   return {
     animals,
-    update(dt, P, camPos) {
+    update(dt, P, camPos, camera) {
+      if (camera) frustum.setFromProjectionMatrix(pv.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
       for (const a of animals) {
-        const near = Math.hypot(a.x - camPos.x, a.z - camPos.z) < 90;
+        const camD = Math.hypot(a.x - camPos.x, a.z - camPos.z);
+        const near = camD < 90;
+        // Djur långt bort vilar helt (syns inte och påverkar ingenting)
+        if (camD > 110 && Math.hypot(a.x - P.x, a.z - P.z) > 110) { a.obj.visible = false; continue; }
         a.t -= dt;
         // Vilda djur springer iväg när man kommer nära
         const dp = Math.hypot(P.x - a.x, P.z - a.z);
@@ -151,7 +157,13 @@ export async function spawnAnimals(scene, world) {
         a.obj.rotation.y = a.heading;
         a.col.x = a.x; a.col.z = a.z;
         a.obj.visible = near;
-        if (near) a.mixer.update(dt);
+        // Animationen räknas bara när djuret syns (eller är alldeles nära, för skuggan)
+        a.mixDt = (a.mixDt || 0) + dt;
+        if (near) {
+          sphere.center.set(a.x, a.obj.position.y + a.radius * 2, a.z); sphere.radius = HEIGHT[a.kind] * 1.6;
+          if (!camera || camD < 14 || frustum.intersectsSphere(sphere)) { a.mixer.update(a.mixDt); a.mixDt = 0; }
+          else if (a.mixDt > 1) a.mixDt = 1;
+        }
       }
     }
   };

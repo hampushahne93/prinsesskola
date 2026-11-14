@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
+import { mergeSkinned, mergeStatic } from './merge.js';
 import { createCharacter } from './avatar.js';
 import { buildWorld, heightAt, rockHeightAt, HALF, PLAY, WATER, FARMS, loadFarms , TOWN } from './world.js';
 
@@ -21,7 +22,9 @@ $('pcoins').textContent = '🪙 ' + (player ? player.coins : 0);
 /* ---------- Renderare och scen ---------- */
 const canvas = $('game');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: !touch });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, touch ? 1.5 : 2));
+const MAX_PR = Math.min(window.devicePixelRatio || 1, touch ? 1.5 : 2);
+let pixelRatio = MAX_PR;
+renderer.setPixelRatio(pixelRatio);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.0;
 renderer.shadowMap.enabled = true;
@@ -47,8 +50,9 @@ async function spawnChests(spots) {
     o.material = [].concat(o.material).map(m => mats[m.name] || (mats[m.name] = new THREE.MeshLambertMaterial({
       color: CHEST_COLORS[m.name] || '#cccccc', flatShading: true,
       emissive: /Gold/.test(m.name) ? '#ffb000' : '#000000', emissiveIntensity: /Gold/.test(m.name) ? 0.25 : 0 })));
-    o.castShadow = true; o.frustumCulled = false;
+    o.castShadow = true;
   });
+  mergeSkinned(src);                             // en mesh + ett skelett per kista
   // Ungefär 45 % inomhus (hus och lador): 4 eller 5 av 10, resten ute
   const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
   const inside = shuffle(spots.filter(s => s.where !== 'ute')), outside = shuffle(spots.filter(s => s.where === 'ute'));
@@ -90,6 +94,7 @@ async function spawnChests(spots) {
     const sign = makeSign();
     const sx = s.x + Math.cos(s.rot) * 1.1, sz = s.z - Math.sin(s.rot) * 1.1;
     sign.position.set(sx, heightAt(sx, sz) - 0.05, sz); sign.rotation.y = s.rot + 0.25; sign.scale.setScalar(1.45);
+    mergeStatic(sign);
     scene.add(sign);
     world.colliders.push({ x: sx, z: sz, r: 0.18 });
     digs.push({ ...s, obj: o, lids, mound, sign, dug: false, rise: 0, open: false, t: 0, buried: true });
@@ -183,7 +188,8 @@ function updateChests(dt, t) {
       const e = 1 - Math.pow(1 - c.t, 3);
       for (const l of c.lids) l.b.rotation.x = l.r0 - 1.2 * e;
     }
-    if (c.open) { c.star.material = starMat; c.star.visible = c.t < 0.5; }
+    c.obj.visible = Math.hypot(c.x - camera.position.x, c.z - camera.position.z) < 95;   // långt bort syns bara stjärnan
+    if (c.open) { c.star.visible = c.t < 0.5; }
     else { c.star.position.y = c.y + 1.7 + Math.sin(t * 2 + c.x) * 0.12; c.star.material.rotation = t; }
   }
   for (let i = burst.length - 1; i >= 0; i--) {
@@ -276,6 +282,7 @@ function toggleGear(id) {
 }
 renderHotbar();
 addEventListener('keydown', e => {
+  if (e.repeat) return;                       // håller man inne tangenten ska prylen inte blinka av/på
   const g = GEAR.find(x => e.code === 'Digit' + x.key || e.code === 'Numpad' + x.key);
   if (g) toggleGear(g.id);
 });
@@ -376,16 +383,21 @@ $('jumpBtn').addEventListener('click', jump);
 
 // Stenar, träd, höbalar och ladväggar. Väggarna körs sist och knuffar alltid tillbaka
 // till den sida man kom ifrån, så att t.ex. en höbal aldrig kan trycka ut en genom väggen.
+const nearCols = [];
 function collide(nx, nz, ox0, oz0) {
+  // Bara hinder i närheten (rutnät) + djuren
+  nearCols.length = 0;
+  for (const c of world.near(nx, nz, 2)) nearCols.push(c);
+  if (animals) for (const a of animals.animals) if (Math.abs(a.x - nx) < 4 && Math.abs(a.z - nz) < 4) nearCols.push(a.col);
   for (let pass = 0; pass < 2; pass++) {
-    for (const c of world.colliders) {
+    for (const c of nearCols) {
       if (c.box || c.active === false) continue;
       if (c.jump && P.y > c.jump) continue;                   // hoppar över staketet
       if (c.top && P.y > c.top - 0.05) continue;              // hoppar över höbal
       const dx = nx - c.x, dz = nz - c.z, rr = c.r + 0.35, dd = dx * dx + dz * dz;
       if (dd < rr * rr && dd > 0.0001) { const k = rr / Math.sqrt(dd); nx = c.x + dx * k; nz = c.z + dz * k; }
     }
-    for (const c of world.colliders) {
+    for (const c of nearCols) {
       if (!c.box || c.active === false) continue;              // öppen ladudörr
       const ex = c.hw + 0.35, ez = c.hd + 0.35;
       const px = nx - c.x, pz = nz - c.z, ox = ex - Math.abs(px), oz = ez - Math.abs(pz);
@@ -407,9 +419,9 @@ function groundAt(x, z) { const b = barnAt(x, z); return b ? b.floorY : Math.max
 let nearBarn = null;
 let nearChest = null;
 function useDoor() { if (nearChest) openChest(nearChest); else if (holdAct) return; else if (nearBarn) nearBarn.toggle(); }
-let holdAct = null, holdT = 0;
+let holdAct = null, holdT = 0, lastShook = null;
 const falling = [];
-addEventListener('keydown', e => { if (e.code === 'KeyE' || e.code === 'Enter') useDoor(); });
+addEventListener('keydown', e => { if (!e.repeat && (e.code === 'KeyE' || e.code === 'Enter')) useDoor(); });   // inte om och om igen när man håller E
 // Knappen: tryck (dörr/kista) eller håll inne (hugga/gräva)
 let promptHeld = false;
 $('prompt').addEventListener('pointerdown', e => { e.preventDefault(); promptHeld = true; useDoor(); });
@@ -542,11 +554,15 @@ function update(dt) {
   const inBarn = barnAt(P.x, P.z);
   if (inBarn) d = Math.min(d, 4.2);
   const sx = Math.sin(yaw) * Math.cos(pitch), sz = Math.cos(yaw) * Math.cos(pitch), sy = Math.sin(pitch);
+  const camCols = world.near(camTarget.x + sx * d * 0.5, camTarget.z + sz * d * 0.5, d * 0.5 + 1);
   for (let st = 0.6; st <= d; st += 0.35) {
     const tx = camTarget.x + sx * st, tz = camTarget.z + sz * st, ty = camTarget.y + sy * st;
-    const hit = world.colliders.some(c => c.top && c.active !== false && ty < c.top + 0.3 && (c.box
-      ? Math.abs(tx - c.x) < c.hw + 0.25 && Math.abs(tz - c.z) < c.hd + 0.25
-      : (tx - c.x) ** 2 + (tz - c.z) ** 2 < (c.r + 0.4) ** 2));
+    let hit = false;
+    for (const c of camCols) {
+      if (!c.top || c.active === false || ty >= c.top + 0.3) continue;
+      if (c.box ? Math.abs(tx - c.x) < c.hw + 0.25 && Math.abs(tz - c.z) < c.hd + 0.25
+                : (tx - c.x) ** 2 + (tz - c.z) ** 2 < (c.r + 0.4) ** 2) { hit = true; break; }
+    }
     if (hit) { d = Math.max(0.7, st - 0.4); break; }
   }
   const cx = camTarget.x + Math.sin(yaw) * Math.cos(pitch) * d;
@@ -576,10 +592,21 @@ function update(dt) {
     for (const b of farms.barns) { const dd = Math.hypot(P.x - b.door.x, P.z - b.door.z); if (dd < best) { best = dd; nearBarn = b; } }
   }
   nearChest = null;
-  { let best = 2.3; for (const c of chests) { if (c.open) continue; const dd = Math.hypot(P.x - c.x, P.z - c.z); if (dd < best && Math.abs(P.y - c.y) < 1.6) { best = dd; nearChest = c; } } }
+  {
+    // Kistor inne i hus/lador kan bara öppnas inifrån (inte genom väggen)
+    const here = barnAt(P.x, P.z);
+    let best = 2.3;
+    for (const c of chests) {
+      if (c.open) continue;
+      const dd = Math.hypot(P.x - c.x, P.z - c.z);
+      if (dd >= best || Math.abs(P.y - c.y) >= 1.6) continue;
+      if (c.where !== 'ute' && (c.inside === undefined ? (c.inside = barnAt(c.x, c.z)) : c.inside) !== here) continue;
+      best = dd; nearChest = c;
+    }
+  }
   const now = performance.now() / 1000;
   updateChests(dt, now);
-  if (animals) animals.update(dt, P, camera.position);
+  if (animals) animals.update(dt, P, camera.position, camera);
 
   // Hugga träd med yxan / gräva med spaden (håll E i några sekunder)
   let act = null;
@@ -614,10 +641,14 @@ function update(dt) {
         toast('🪓 Timmer! +10 guldmynt');
       } else {
         act.d.dug = true; act.d.obj.visible = true;
+        world.colliders.push({ x: act.d.x, z: act.d.z, r: 0.6, top: act.d.y + 0.95 });   // går inte att gå igenom
       }
       holdT = 0; holdAct = null;
     }
-  } else if (act && act.kind === 'tree' && holdT === 0) world.trees.pose(act.tr, 0, 1, 0);
+  } else holdT = 0;                                       // släpper man börjar mätaren om
+  // Trädet som skakade ställs rakt igen när man slutar hugga eller går därifrån
+  if (lastShook && lastShook.alive && (!working || !act || act.tr !== lastShook)) { world.trees.pose(lastShook, 0, 1, 0); lastShook.shook = false; lastShook = null; }
+  if (working && act.kind === 'tree') lastShook = act.tr;
   for (let i = falling.length - 1; i >= 0; i--) {
     const f = falling[i];
     f.t += dt;
@@ -661,15 +692,27 @@ function update(dt) {
   P.heading = yaw + Math.PI;
 }
 camera.position.set(P.x - Math.sin(yaw) * -6, P.y + 4, P.z - Math.cos(yaw) * -6);
+// Automatisk upplösning: full skärpa så länge datorn hinner med, sänks bara om det börjar hacka
+let frameSum = 0, frameN = 0, goodWindows = 0;
+function adaptResolution(raw) {
+  if (document.hidden || raw > 0.25) return;           // flikbyte/paus räknas inte
+  frameSum += raw; frameN++;
+  if (frameSum < 2) return;                            // utvärdera varannan sekund
+  const avg = frameSum / frameN; frameSum = 0; frameN = 0;
+  if (avg > 0.024 && pixelRatio > 1) { pixelRatio = Math.max(1, pixelRatio - 0.25); renderer.setPixelRatio(pixelRatio); goodWindows = 0; }
+  else if (avg < 0.0145 && pixelRatio < MAX_PR) { if (++goodWindows >= 3) { pixelRatio = Math.min(MAX_PR, pixelRatio + 0.25); renderer.setPixelRatio(pixelRatio); goodWindows = 0; } }
+  else goodWindows = 0;
+}
 function loop() {
   requestAnimationFrame(loop);
-  const dt = Math.min(clock.getDelta(), 0.05);
+  const raw = clock.getDelta(), dt = Math.min(raw, 0.05);
+  adaptResolution(raw);
   update(dt);
-  world.update(clock.elapsedTime);
+  world.update(clock.elapsedTime, camera.position);
   if (farms) farms.update(clock.elapsedTime, dt);
   renderer.render(scene, camera);
 }
 loop();
 
 // För test: Jakt.teleport(x, z)
-window.Jakt = { get animals() { return animals; }, P, chests, digs, openChest, world, get ch() { return ch; }, set timeLeft(v) { timeLeft = v; }, get timeLeft() { return timeLeft; }, step(n = 1, dt = 1 / 60) { for (let i = 0; i < n; i++) { update(dt); if (farms) farms.update(0, dt); } }, get farms() { return farms; }, get cam() { return camera.position.toArray(); }, teleport(x, z) { P.x = x; P.z = z; P.y = groundAt(x, z); P.vy = 0; P.grounded = true; }, get yaw() { return yaw; }, set yaw(v) { yaw = v; }, set pitch(v) { pitch = v; }, set dist(v) { dist = v; }, keys };
+window.Jakt = { renderer, scene, camera, get animals() { return animals; }, P, chests, digs, openChest, world, get ch() { return ch; }, set timeLeft(v) { timeLeft = v; }, get timeLeft() { return timeLeft; }, step(n = 1, dt = 1 / 60) { for (let i = 0; i < n; i++) { update(dt); if (farms) farms.update(0, dt); } }, get farms() { return farms; }, get cam() { return camera.position.toArray(); }, teleport(x, z) { P.x = x; P.z = z; P.y = groundAt(x, z); P.vy = 0; P.grounded = true; }, get yaw() { return yaw; }, set yaw(v) { yaw = v; }, set pitch(v) { pitch = v; }, set dist(v) { dist = v; }, keys };
