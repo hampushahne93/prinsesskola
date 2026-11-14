@@ -50,7 +50,7 @@ export async function spawnAnimals(scene, world) {
         const ang = R() * Math.PI * 2, d = Math.sqrt(R()) * a.r;
         x = a.x + Math.cos(ang) * d; z = a.z + Math.sin(ang) * d;
       }
-      if (!blocked(x, z, 0.8)) return [x, z];
+      if (!blocked(x, z, 1.6)) return [x, z];
     }
     return null;
   };
@@ -69,7 +69,7 @@ export async function spawnAnimals(scene, world) {
     const col = { x: p[0], z: p[1], r: radius, animal: true };
     colliders.push(col);
     const a = { kind, obj, mixer, acts, cur: null, area, x: p[0], z: p[1], heading: R() * 6.28, mode: 'idle', t: R() * 4,
-      target: null, col, radius, wild: WILD[kind], speed: ['Husky', 'Fox', 'ShibaInu', 'Wolf'].includes(kind) ? 1.6 : 1.1 };
+      target: null, col, radius, len: HEIGHT[kind] * 0.62, wild: WILD[kind], speed: ['Husky', 'Fox', 'ShibaInu', 'Wolf'].includes(kind) ? 1.6 : 1.1 };
     play(a, R() < 0.5 ? 'Eating' : 'Idle');
     a.mixer.setTime(R() * 3);
     animals.push(a);
@@ -134,11 +134,16 @@ export async function spawnAnimals(scene, world) {
           const d = Math.hypot(dirX, dirZ) || 1;
           const want = Math.atan2(dirX / d, dirZ / d);
           let dh = want - a.heading; dh = Math.atan2(Math.sin(dh), Math.cos(dh));
+          const oldHeading = a.heading;
           a.heading += dh * Math.min(1, dt * (a.mode === 'flee' ? 6 : 3));
           const nx = a.x + Math.sin(a.heading) * speed * dt, nz = a.z + Math.cos(a.heading) * speed * dt;
-          if (blocked(nx, nz, a.radius) || Math.hypot(nx - P.x, nz - P.z) < a.radius + 0.5) {
-            if (a.mode === 'flee') { a.heading += 0.8; }
-            else { a.mode = 'idle'; a.t = 1 + R() * 2; play(a, 'Idle'); }
+          // Känn efter vid nosen och baken också (djuren är långa)
+          const fx = Math.sin(a.heading) * a.len, fz = Math.cos(a.heading) * a.len;
+          if (blocked(nx, nz, a.radius) || blocked(nx + fx, nz + fz, a.radius * 0.6) || blocked(nx - fx * 0.8, nz - fz * 0.8, a.radius * 0.6)
+              || Math.hypot(nx - P.x, nz - P.z) < a.radius + 0.5 || Math.hypot(nx + fx - P.x, nz + fz - P.z) < 0.6) {
+            a.heading = oldHeading;                                  // vrid inte in nosen i väggen
+            if (a.mode === 'flee') { a.heading += 0.8; if (blocked(a.x + Math.sin(a.heading) * a.len, a.z + Math.cos(a.heading) * a.len, a.radius * 0.6)) a.heading = oldHeading; }
+            else { a.mode = 'idle'; a.t = 0.6 + R(); play(a, 'Idle'); }   // stanna, nästa mål väljs snart
           } else { a.x = nx; a.z = nz; }
           play(a, a.mode === 'flee' ? 'Gallop' : 'Walk');
         }

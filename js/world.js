@@ -685,12 +685,14 @@ export async function loadFarms(scene, colliders) {
     // Väggar som kollision (dörröppningen stängs av en egen låda)
     const [x0, x1, z0, z1] = kit.body.map(v => v * S), T = 0.35, top = f.h + kit.top * S;
     const [g0, g1] = kit.gap.map(v => v * S), fz = kit.frontZ * S + oz;
-    box(f, 0, z0 + oz + T / 2, x1 - x0, T, top);                      // bakvägg
-    box(f, x0 + T / 2, (z0 + z1) / 2 + oz, T, z1 - z0, top);          // vänster
-    box(f, x1 - T / 2, (z0 + z1) / 2 + oz, T, z1 - z0, top);          // höger
-    box(f, (x0 + g0) / 2, fz, g0 - x0, T, top);                       // fram vänster
-    box(f, (g1 + x1) / 2, fz, x1 - g1, T, top);                       // fram höger
-    const door = box(f, (g0 + g1) / 2, fz, g1 - g0, T, top, { active: true });
+    // Väggarna är tjocka (bräder + stolpar på insidan), så kollisionen går en bit in i ladan
+    const TW = 0.55 * S, TF = 0.6 * S, fzc = fz - TF / 2 + T / 2;
+    box(f, 0, z0 + oz + TW / 2, x1 - x0, TW, top);                    // bakvägg
+    box(f, x0 + TW / 2, (z0 + z1) / 2 + oz, TW, z1 - z0, top);        // vänster
+    box(f, x1 - TW / 2, (z0 + z1) / 2 + oz, TW, z1 - z0, top);        // höger
+    box(f, (x0 + g0) / 2, fzc, g0 - x0, TF, top);                     // fram vänster
+    box(f, (g1 + x1) / 2, fzc, x1 - g1, TF, top);                     // fram höger
+    const door = box(f, (g0 + g1) / 2, fzc, g1 - g0, TF, top, { active: true });
 
     // Trägolv ovanpå modellens golv
     const FLOOR = 0.27 * S;
