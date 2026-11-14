@@ -683,9 +683,48 @@ async function createCharacter(look, gender) {
     }
   }
 
+  /* ---------- Arbete: hugga med yxan / gräva med spaden (loopar så länge man håller) ---------- */
+  let work = null, workW = 0, workT = 0, lastWork = null;
+  const FWD = -1;   // framåt-lyft av armen = negativ vinkel runt x-axeln
+  function applyWork(name, t, w) {
+    const B = bones;
+    if (name === 'hugga') {
+      // Ta sats bakåt/uppåt ... hugg snabbt ner ... studs tillbaka
+      const p = (t * 1.6) % 1;
+      let lift;
+      if (p < 0.55) lift = 0.6 + 1.9 * Math.sin(p / 0.55 * Math.PI / 2);          // upp
+      else if (p < 0.7) lift = 2.5 - 2.3 * ((p - 0.55) / 0.15);                     // hugg!
+      else lift = 0.2 + 0.4 * ((p - 0.7) / 0.3);                                     // tillbaka
+      rotW(B.RightArm, 1, 0, 0, FWD * lift * w);
+      rotW(B.LeftArm, 1, 0, 0, FWD * (lift * 0.8) * w);
+      raise(B.RightArm, sR, -0.35 * w); raise(B.LeftArm, sL, -0.55 * w);              // armarna in mot mitten (båda händerna på skaftet)
+      rotW(B.RightForeArm, 1, 0, 0, FWD * 0.35 * w); rotW(B.LeftForeArm, 1, 0, 0, FWD * 0.5 * w);
+      rotW(B.Spine, 1, 0, 0, (0.08 + (lift < 1.2 ? 0.18 : -0.05)) * w);             // böj fram i hugget
+      rotW(B.Spine, 0, 1, 0, -0.18 * w);
+      rotW(B.Head, 1, 0, 0, 0.12 * w);
+    } else if (name === 'grava') {
+      // Stöt ner spaden ... luta bak och lyft jorden
+      const p = (t * 1.3) % 1, s = Math.sin(p * Math.PI * 2);
+      const bend = 0.28 + 0.16 * s;
+      rotW(B.Spine, 1, 0, 0, bend * w);
+      rotW(B.Head, 1, 0, 0, -0.15 * w);
+      rotW(B.RightArm, 1, 0, 0, FWD * (0.9 + 0.35 * s) * w);
+      rotW(B.LeftArm, 1, 0, 0, FWD * (1.2 + 0.35 * s) * w);
+      raise(B.RightArm, sR, -0.25 * w); raise(B.LeftArm, sL, -0.45 * w);
+      rotW(B.RightForeArm, 1, 0, 0, FWD * (0.3 - 0.2 * s) * w); rotW(B.LeftForeArm, 1, 0, 0, FWD * (0.5 - 0.2 * s) * w);
+    }
+  }
+
   let blinkT = -1, nextBlink = 1.5 + Math.random() * 2, time = 0;
   return {
     root, bones, mixer, play, emote,
+    // 'hugga', 'grava' eller null
+    setWork(name) {
+      if (name === work) return;
+      if (name && current !== actions.idle) play('idle', 0.15);
+      if (name) { workT = 0; lastWork = name; }
+      work = name;
+    },
     /* Prylar: 'spade', 'yxa', 'fjader', 'inlines' */
     setGear(name, on) {
       if (on && !gear[name]) {
@@ -708,6 +747,12 @@ async function createCharacter(look, gender) {
         root.getWorldQuaternion(rq);
         if (emo.t >= emo.d) { if (emo.name === 'snurra') root.rotation.y = 0; emo = null; }
         else applyEmote(emo.name, emo.t, Math.max(0, Math.min(1, emo.t / 0.35, (emo.d - emo.t) / 0.35)));
+      }
+      workW = Math.max(0, Math.min(1, workW + (work ? dt * 6 : -dt * 6)));
+      if (workW > 0 && lastWork) {
+        if (work) workT += dt;
+        root.getWorldQuaternion(rq);
+        applyWork(lastWork, workT, workW);
       }
       if (aura) { const k = 1 + Math.sin(time * 2.5) * 0.06; aura.material.opacity = 0.75 + Math.sin(time * 2.5) * 0.2; aura.scale.x = aura.userData.sx || (aura.userData.sx = aura.scale.x); aura.scale.x = aura.userData.sx * k; }
       // Huvudet tittar lite mot pekaren

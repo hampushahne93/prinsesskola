@@ -144,11 +144,11 @@ function openChest(c) {
     toast('⏱️ +1 minut extra speltid!');
     return;
   }
-  // 5–10 guldmynt per kista, nergrävda kistor ger dubbelt
-  const n = (5 + Math.floor(Math.random() * 6)) * (c.buried ? 2 : 1);
+  // 1 eller 2 guldmynt per kista (50/50), nergrävda kistor ger dubbelt
+  const n = (Math.random() < 0.5 ? 1 : 2) * (c.buried ? 2 : 1);
   giveCoins(n);
   const left = chests.filter(x => !x.open).length;
-  toast(`🎉 +${n} guldmynt!` + (c.buried ? ' Du grävde upp en skatt!' : left ? ` ${left} kistor kvar` : ' Du hittade alla kistor!'));
+  toast(`🎉 +${n} guldmynt${n === 1 ? '' : ''}!` + (c.buried ? ' Du grävde upp en skatt!' : left ? ` ${left} kistor kvar` : ' Du hittade alla kistor!'));
 }
 function giveCoins(n) {
   if (player) coins = Save.addCoins(player.id, n); else coins += n;
@@ -591,9 +591,16 @@ function update(dt) {
   if (!holdAct || !act || (holdAct.tr || holdAct.d) !== actTarget) holdT = 0;
   holdAct = act;
   const holding = keys.KeyE || keys.Enter || keys.NumpadEnter || promptHeld;
-  if (act && holding && !timeUp) {
+  const working = act && holding && !timeUp;
+  if (ch && ch.setWork) ch.setWork(working ? (act.kind === 'tree' ? 'hugga' : 'grava') : null);
+  if (working) {
     holdT += dt;
-    if (act.kind === 'tree') world.trees.pose(act.tr, 0, 1, 0, Math.sin(now * 40) * 0.025);     // trädet skakar
+    const tg = act.tr || act.d;
+    P.heading = Math.atan2(tg.x - P.x, tg.z - P.z);                                              // vänd dig mot trädet/högen
+    if (act.kind === 'tree') {
+      const ph = (holdT * 1.6) % 1, hit = ph > 0.66 && ph < 0.9;                                   // skakar när yxan träffar
+      world.trees.pose(act.tr, 0, 1, 0, hit ? Math.sin((ph - 0.66) * 60) * 0.045 * (0.9 - ph) / 0.24 : 0);
+    }
     if (holdT >= act.time) {
       if (act.kind === 'tree') {
         act.tr.alive = false; act.tr.collider.active = false;
@@ -661,4 +668,4 @@ function loop() {
 loop();
 
 // För test: Jakt.teleport(x, z)
-window.Jakt = { P, chests, digs, openChest, world, set timeLeft(v) { timeLeft = v; }, get timeLeft() { return timeLeft; }, step(n = 1, dt = 1 / 60) { for (let i = 0; i < n; i++) { update(dt); if (farms) farms.update(0, dt); } }, get farms() { return farms; }, get cam() { return camera.position.toArray(); }, teleport(x, z) { P.x = x; P.z = z; P.y = groundAt(x, z); P.vy = 0; P.grounded = true; }, get yaw() { return yaw; }, set yaw(v) { yaw = v; }, set pitch(v) { pitch = v; }, set dist(v) { dist = v; }, keys };
+window.Jakt = { P, chests, digs, openChest, world, get ch() { return ch; }, set timeLeft(v) { timeLeft = v; }, get timeLeft() { return timeLeft; }, step(n = 1, dt = 1 / 60) { for (let i = 0; i < n; i++) { update(dt); if (farms) farms.update(0, dt); } }, get farms() { return farms; }, get cam() { return camera.position.toArray(); }, teleport(x, z) { P.x = x; P.z = z; P.y = groundAt(x, z); P.vy = 0; P.grounded = true; }, get yaw() { return yaw; }, set yaw(v) { yaw = v; }, set pitch(v) { pitch = v; }, set dist(v) { dist = v; }, keys };
