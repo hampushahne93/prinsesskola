@@ -46,9 +46,12 @@ async function spawnChests(spots) {
       emissive: /Gold/.test(m.name) ? '#ffb000' : '#000000', emissiveIntensity: /Gold/.test(m.name) ? 0.25 : 0 })));
     o.castShadow = true; o.frustumCulled = false;
   });
-  const pool = spots.slice();
-  for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
-  for (const s of pool.slice(0, CHESTS)) {
+  // Ungefär 45 % inomhus (hus och lador): 4 eller 5 av 10, resten ute
+  const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+  const inside = shuffle(spots.filter(s => s.where !== 'ute')), outside = shuffle(spots.filter(s => s.where === 'ute'));
+  const nIn = Math.random() < 0.5 ? 4 : 5, picked = [], used = new Set();
+  for (const s of inside) { if (picked.length >= nIn) break; if (!used.has(s.bid)) { used.add(s.bid); picked.push(s); } }   // max en kista per hus/lada
+  for (const s of [...picked, ...outside.slice(0, CHESTS - picked.length)]) {
     const o = SkeletonUtils.clone(src);
     o.scale.setScalar(0.0055);
     o.position.set(s.x, s.y, s.z);

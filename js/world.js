@@ -678,7 +678,17 @@ export async function loadFarms(scene, colliders) {
       const a = toWorld(f, x0, z0 + oz), c = toWorld(f, x1, z1 + oz);
       return { minX: Math.min(a[0], c[0]) + 0.2, maxX: Math.max(a[0], c[0]) - 0.2, minZ: Math.min(a[1], c[1]) + 0.2, maxZ: Math.max(a[1], c[1]) - 0.2 };
     })();
-    { const [cx, cz] = toWorld(f, 0, z0 + oz + 1.1); chestSpots.push({ x: cx, z: cz, y: f.h - 0.05 + FLOOR, rot: f.yaw, where: 'lada' }); }
+    {
+      // Kistplatser i ladan: vid bakväggen, stora ladan även längs sidorna
+      // 3 av 5 möjliga ställen per lada, olika ställen i olika lador
+      const y = f.h - 0.05 + FLOOR, mz = (z0 + z1) / 2 + oz, k = barns.length;
+      const cand = [[0, z0 + oz + 1.1, 0], [x0 + 1.2, mz, Math.PI / 2], [x1 - 1.2, mz, -Math.PI / 2],
+        [x0 + 1.2, z1 + oz - 1.5, Math.PI / 2], [x1 - 1.2, z1 + oz - 1.5, -Math.PI / 2]];
+      for (const i of [k % 5, (k + 2) % 5, (k + 4) % 5]) {
+        const [lx, lz, r] = cand[i], [cx, cz] = toWorld(f, lx, lz);
+        chestSpots.push({ x: cx, z: cz, y, rot: f.yaw + r, where: 'lada', bid: 'b' + k });
+      }
+    }
     barns.push({
       kind: f.kind, doors, doorCollider: door, door: { x: dx, z: dz }, inner, roof: f.h + 2.2 * S, floorY: f.h - 0.05 + FLOOR,
       open: false, t: 0,
@@ -787,7 +797,19 @@ export async function loadFarms(scene, colliders) {
     rug.rotation.x = -Math.PI / 2; rug.position.set(W((x0 + x1) / 2), FY + 0.01, W((z0 + z1) / 2) - 0.5);
     g.add(rug);
 
-    { const [cx, cz] = toWorld(f, W((x0 + x1) / 2), W(z0) + 1.0); chestSpots.push({ x: cx, z: cz, y: f.h + W(K.floor), rot: f.yaw, where: 'hus' }); }
+    {
+      // Två kistplatser per hus: vid bakväggen och i hörnet längst från dörren
+      // 1–2 av 5 möjliga ställen per hus, olika ställen i olika hus
+      const y = f.h + W(K.floor), leftSide = (d0 + d1) / 2 > (x0 + x1) / 2, k = TOWN.houses.indexOf(H);
+      const far = leftSide ? [W(x0) + 1.0, Math.PI / 2] : [W(x1) - 1.0, -Math.PI / 2];
+      const cand = [[W((x0 + x1) / 2), W(z0) + 1.0, 0], [W(x0) + 1.1, W(z0) + 1.0, 0], [W(x1) - 1.1, W(z0) + 1.0, 0],
+        [far[0], W(z1) - 1.3, far[1]], [far[0], W((z0 + z1) / 2), far[1]]];
+      const pick = k % 2 ? [(k * 2) % 5, (k * 2 + 3) % 5] : [(k * 3) % 5];
+      for (const i of pick) {
+        const [lx, lz, r] = cand[i], [cx, cz] = toWorld(f, lx, lz);
+        chestSpots.push({ x: cx, z: cz, y, rot: f.yaw + r, where: 'hus', bid: 'h' + k });
+      }
+    }
     const [dx, dz] = toWorld(f, W((d0 + d1) / 2), W(z1) + 1.2);
     const a = toWorld(f, W(x0), W(z0)), c = toWorld(f, W(x1), W(z1));
     const inner = { minX: Math.min(a[0], c[0]) + 0.2, maxX: Math.max(a[0], c[0]) - 0.2, minZ: Math.min(a[1], c[1]) + 0.2, maxZ: Math.max(a[1], c[1]) - 0.2 };
