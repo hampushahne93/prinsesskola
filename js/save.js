@@ -13,7 +13,7 @@
   function defaults() {
     return {
       version: VERSION,
-      players: [],             // [{ id, name, gender, look, progress, createdAt }]
+      players: [],             // [{ id, name, gender, look, progress, coins, unlocked, createdAt }]
       activeId: null,
       settings: { sound: true }
     };
@@ -52,7 +52,11 @@
       delete d.progress;
     }
     if (!Array.isArray(d.players)) d.players = [];
-    d.players.forEach(p => { p.progress = merge(emptyProgress(), p.progress || {}); });
+    d.players.forEach(p => {
+      p.progress = merge(emptyProgress(), p.progress || {});
+      if (typeof p.coins !== 'number' || !(p.coins >= 0)) p.coins = 0;
+      if (!Array.isArray(p.unlocked)) p.unlocked = [];
+    });
     if (d.activeId && !d.players.some(p => p.id === d.activeId)) d.activeId = null;
     d.version = VERSION;
     return d;
@@ -88,7 +92,7 @@
   const get = id => players().find(p => p.id === id) || null;
   const active = () => get(load().activeId);
   function addPlayer({ name, gender, look }) {
-    const p = { id: uid(), name, gender, look, createdAt: new Date().toISOString(), progress: emptyProgress() };
+    const p = { id: uid(), name, gender, look, createdAt: new Date().toISOString(), progress: emptyProgress(), coins: 0, unlocked: [] };
     update(d => { d.players.push(p); d.activeId = p.id; });
     return p;
   }
@@ -101,5 +105,19 @@
   }
   function setActive(id) { update(d => { d.activeId = id; }); }
 
-  window.Save = { load, save, update, KEY, players, get, active, addPlayer, updatePlayer, removePlayer, setActive };
+  /* ---------- Guldmynt och upplåsta saker ---------- */
+  function addCoins(id, n) {
+    let total = 0;
+    updatePlayer(id, p => { p.coins = Math.max(0, (p.coins || 0) + Math.round(n)); total = p.coins; });
+    return total;
+  }
+  const owns = (id, key) => { const p = get(id); return !!(p && p.unlocked.includes(key)); };
+  function buy(id, key, price) {
+    const p = get(id);
+    if (!p || p.unlocked.includes(key) || p.coins < price) return false;
+    updatePlayer(id, q => { q.coins -= price; q.unlocked.push(key); });
+    return true;
+  }
+
+  window.Save = { load, save, update, KEY, players, get, active, addPlayer, updatePlayer, removePlayer, setActive, addCoins, owns, buy };
 })();

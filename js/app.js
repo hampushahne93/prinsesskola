@@ -18,7 +18,15 @@
       { id: 'tofsar', label: 'Tofsar', ic: '🎀' },
       { id: 'knut', label: 'Knut', ic: '🍩' },
       { id: 'lockigt', label: 'Lockigt', ic: '🌀' },
-      { id: 'flint', label: 'Flint', ic: '🥚' }
+      { id: 'flint', label: 'Flint', ic: '🥚' },
+      { id: 'mohikan', label: 'Mohikan', ic: '🦔', price: 100 },
+      { id: 'afro', label: 'Afro', ic: '☁️', price: 100 },
+      { id: 'flata', label: 'Fläta', ic: '🥨', price: 100 },
+      { id: 'dubbelknut', label: 'Dubbelknut', ic: '🐭', price: 100 },
+      { id: 'spikigt', label: 'Spikigt', ic: '⚡', price: 100 },
+      { id: 'langlockar', label: 'Långa lockar', ic: '🌊', price: 100 },
+      { id: 'guldhar', label: 'Guldglöd-hår', ic: '✨', soon: 'guld' },
+      { id: 'rosahar', label: 'Rosa glöd-hår', ic: '💖', soon: 'rosa' }
     ],
     hairColor: ['#1b1310', '#3b2316', '#6a4026', '#a8733f', '#e3c27a', '#b3471f', '#ff5ccf', '#3ee8ff', '#8a5cff'],
     eyes: ['#5b3a1e', '#8a5a2b', '#2f6db5', '#3f8a4a', '#7a8a99'],
@@ -33,7 +41,12 @@
       { id: 'inga', label: 'Inget', ic: '➖' },
       { id: 'kinder', label: 'Rosa kinder', ic: '☺️' },
       { id: 'fraknar', label: 'Fräknar', ic: '🌟' },
-      { id: 'glasogon', label: 'Glasögon', ic: '👓' }
+      { id: 'glasogon', label: 'Glasögon', ic: '👓' },
+      { id: 'solglasogon', label: 'Solglasögon', ic: '😎', price: 100 },
+      { id: 'hjartglasogon', label: 'Hjärtglasögon', ic: '😍', price: 100 },
+      { id: 'morrhar', label: 'Morrhår', ic: '🐱', price: 100 },
+      { id: 'stjarnkinder', label: 'Stjärnkinder', ic: '⭐', price: 100 },
+      { id: 'mustasch', label: 'Mustasch', ic: '🥸', price: 100 }
     ],
     top: [
       { id: 'tshirt', label: 'T-shirt', ic: '👕' },
@@ -41,15 +54,34 @@
       { id: 'hoodie', label: 'Hoodie', ic: '🏂' },
       { id: 'jacka', label: 'Jacka', ic: '🧥' },
       { id: 'linne', label: 'Linne', ic: '🎽' },
-      { id: 'klanning', label: 'Klänning', ic: '👗' }
+      { id: 'klanning', label: 'Klänning', ic: '👗' },
+      { id: 'pike', label: 'Piké', ic: '🎾', price: 100 },
+      { id: 'vast', label: 'Väst', ic: '🦺', price: 100 },
+      { id: 'fotboll', label: 'Fotbollströja', ic: '⚽', price: 100 },
+      { id: 'superhjalte', label: 'Superhjälte', ic: '🦸', price: 100 },
+      { id: 'regnjacka', label: 'Regnjacka', ic: '☔', price: 100 },
+      { id: 'kofta', label: 'Kofta', ic: '🧶', price: 100 },
+      { id: 'smoking', label: 'Smoking', ic: '🤵', price: 100 },
+      { id: 'guldtroja', label: 'Guldglöd-tröja', ic: '✨', soon: 'guld' },
+      { id: 'rosatroja', label: 'Rosa glöd-hoodie', ic: '💖', soon: 'rosa' }
     ],
     pattern: [
       { id: 'enfargad', label: 'Enfärgad', ic: '⬜' },
-      { id: 'randig', label: 'Randig', ic: '🦓' },
+      { id: 'randig', label: 'Randig', ic: '〰️' },
       { id: 'prickig', label: 'Prickig', ic: '🔵' },
       { id: 'rutig', label: 'Rutig', ic: '🏁' },
       { id: 'stjarnor', label: 'Stjärnor', ic: '⭐' },
-      { id: 'hjartan', label: 'Hjärtan', ic: '💗' }
+      { id: 'hjartan', label: 'Hjärtan', ic: '💗' },
+      { id: 'zebra', label: 'Zebra', ic: '🦓', price: 100 },
+      { id: 'leopard', label: 'Leopard', ic: '🐆', price: 100 },
+      { id: 'kamo', label: 'Kamouflage', ic: '🪖', price: 100 },
+      { id: 'regnbage', label: 'Regnbåge', ic: '🌈', price: 100 },
+      { id: 'batik', label: 'Batik', ic: '🌀', price: 100 },
+      { id: 'blommor', label: 'Blommor', ic: '🌼', price: 100 },
+      { id: 'schack', label: 'Schackrutor', ic: '♟️', price: 100 },
+      { id: 'dinos', label: 'Dinosaurier', ic: '🦕', price: 100 },
+      { id: 'tassar', label: 'Tassar', ic: '🐾', price: 100 },
+      { id: 'fiskar', label: 'Fiskar', ic: '🐟', price: 100 }
     ],
     print: [
       { id: 'ingen', label: 'Inget', ic: '➖' },
@@ -60,18 +92,50 @@
       { id: 'smiley', label: 'Smiley', ic: '😊' },
       { id: 'blomma', label: 'Blomma', ic: '🌸' },
       { id: 'raket', label: 'Raket', ic: '🚀' },
-      { id: 'planet', label: 'Planet', ic: '🪐' }
+      { id: 'planet', label: 'Planet', ic: '🪐' },
+      { id: 'katt', label: 'Katt', ic: '🐱', price: 100 },
+      { id: 'hund', label: 'Hund', ic: '🐶', price: 100 },
+      { id: 'enhorning', label: 'Enhörning', ic: '🦄', price: 100 },
+      { id: 'dino', label: 'Dino', ic: '🦖', price: 100 },
+      { id: 'panda', label: 'Panda', ic: '🐼', price: 100 },
+      { id: 'rav', label: 'Räv', ic: '🦊', price: 100 },
+      { id: 'uggla', label: 'Uggla', ic: '🦉', price: 100 },
+      { id: 'haj', label: 'Haj', ic: '🦈', price: 100 },
+      { id: 'fjaril', label: 'Fjäril', ic: '🦋', price: 100 },
+      { id: 'kanin', label: 'Kanin', ic: '🐰', price: 100 }
     ],
     bottom: [
       { id: 'byxor', label: 'Byxor', ic: '👖' },
       { id: 'jeans', label: 'Jeans', ic: '🧵' },
       { id: 'shorts', label: 'Shorts', ic: '🩳' },
-      { id: 'kjol', label: 'Kjol', ic: '💃' }
+      { id: 'kjol', label: 'Kjol', ic: '💃' },
+      { id: 'cargo', label: 'Cargo', ic: '🎒', price: 100 },
+      { id: 'leggings', label: 'Leggings', ic: '🧘', price: 100 },
+      { id: 'mjukis', label: 'Mjukisbyxor', ic: '🛋️', price: 100 },
+      { id: 'snickarbyxor', label: 'Snickarbyxor', ic: '👷', price: 100 },
+      { id: 'rutiga', label: 'Rutiga byxor', ic: '🏁', price: 100 },
+      { id: 'tutu', label: 'Tutu', ic: '🩰', price: 100 },
+      { id: 'veckkjol', label: 'Veckkjol', ic: '🎐', price: 100 },
+      { id: 'jeansshorts', label: 'Jeansshorts', ic: '✂️', price: 100 },
+      { id: 'kostym', label: 'Kostymbyxor', ic: '🕴️', price: 100 },
+      { id: 'guldbyxor', label: 'Guldglöd-byxor', ic: '✨', soon: 'guld' },
+      { id: 'rosakjol', label: 'Rosa glöd-tutu', ic: '💖', soon: 'rosa' }
     ],
     shoeStyle: [
       { id: 'sneakers', label: 'Sneakers', ic: '👟' },
-      { id: 'stovlar', label: 'Stövlar', ic: '🥾' },
-      { id: 'glitter', label: 'Glitter', ic: '✨' }
+      { id: 'stovlar', label: 'Stövlar', ic: '👢' },
+      { id: 'glitter', label: 'Glitter', ic: '✨' },
+      { id: 'tofflor', label: 'Tofflor', ic: '🧸', price: 100 },
+      { id: 'sandaler', label: 'Sandaler', ic: '🩴', price: 100 },
+      { id: 'ballerina', label: 'Ballerina', ic: '🩰', price: 100 },
+      { id: 'gummistovlar', label: 'Gummistövlar', ic: '☔', price: 100 },
+      { id: 'kangor', label: 'Kängor', ic: '🥾', price: 100 },
+      { id: 'fotbollsskor', label: 'Fotbollsskor', ic: '⚽', price: 100 },
+      { id: 'rullskridskor', label: 'Rullskridskor', ic: '🛼', price: 100 },
+      { id: 'foppa', label: 'Foppatofflor', ic: '🐊', price: 100 },
+      { id: 'vinterkangor', label: 'Vinterkängor', ic: '⛄', price: 100 },
+      { id: 'guldskor', label: 'Guldglöd-skor', ic: '✨', soon: 'guld' },
+      { id: 'rosaskor', label: 'Rosa glöd-skor', ic: '💖', soon: 'rosa' }
     ],
     hat: [
       { id: 'ingen', label: 'Ingen', ic: '➖' },
@@ -79,7 +143,19 @@
       { id: 'mossa', label: 'Mössa', ic: '❄️' },
       { id: 'krona', label: 'Krona', ic: '👑' },
       { id: 'rosett', label: 'Rosett', ic: '🎀' },
-      { id: 'horlurar', label: 'Hörlurar', ic: '🎧' }
+      { id: 'horlurar', label: 'Hörlurar', ic: '🎧' },
+      { id: 'cowboy', label: 'Cowboyhatt', ic: '🤠', price: 100 },
+      { id: 'trollkarl', label: 'Trollkarlshatt', ic: '🧙', price: 100 },
+      { id: 'kattoron', label: 'Kattöron', ic: '🐱', price: 100 },
+      { id: 'kaninoron', label: 'Kaninöron', ic: '🐰', price: 100 },
+      { id: 'enhorning', label: 'Enhörning', ic: '🦄', price: 100 },
+      { id: 'partyhatt', label: 'Partyhatt', ic: '🥳', price: 100 },
+      { id: 'blomkrans', label: 'Blomkrans', ic: '🌸', price: 100 },
+      { id: 'propeller', label: 'Propellerkeps', ic: '🚁', price: 100 },
+      { id: 'hjalm', label: 'Rymdhjälm', ic: '🧑‍🚀', price: 100 },
+      { id: 'tiara', label: 'Tiara', ic: '💎', price: 100 },
+      { id: 'guldkrona', label: 'Guldglöd-krona', ic: '👑', soon: 'guld' },
+      { id: 'rosatiara', label: 'Rosa glöd-tiara', ic: '💖', soon: 'rosa' }
     ],
     outfit: [
       { id: 'egen', label: 'Egen', ic: '✏️' },
@@ -234,6 +310,7 @@
     document.body.classList.remove('onboarding');
     $('who').classList.remove('show');
     $('playerName').textContent = '👤 ' + cur().name;
+    updateCoins();
     $('player').classList.add('show');
     say(defaultSay());
   }
@@ -326,9 +403,10 @@
     const i = steps.indexOf(name);
     [...$('dots').children].forEach((d, j) => d.classList.toggle('on', j <= i));
     $('dots').style.display = name === 'design' ? 'none' : 'flex';
+    document.body.classList.toggle('designing', name === 'design');
   }
 
-  const draft = { gender: null, name: '', look: null, editingId: null };
+  const draft = { gender: null, name: '', look: null, editingId: null, trial: {} };
 
   // Ny gubbe: första gången visas välkomsten, annars börjar vi på tjej/kille
   function startNew(first) {
@@ -403,7 +481,70 @@
       $('tabs').appendChild(b);
     });
   }
-  function setLook(key, val) {
+  /* ---------- Låsta saker (guldmynt) ---------- */
+  const PRICE = 100;
+  const owner = () => draft.editingId ? Save.get(draft.editingId) : null;
+  const findItem = (key, id) => (OPT[key] || []).find(o => o.id === id);
+  function isOwned(key, o) {
+    if (!o || o.soon) return !o;
+    if (!o.price) return true;
+    const p = owner();
+    return !!(p && p.unlocked.includes(key + ':' + o.id));
+  }
+  const myCoins = () => { const p = owner(); return p ? p.coins : 0; };
+  function updateCoins() {
+    $('coins').textContent = '🪙 ' + myCoins();
+    const c = cur();
+    $('playerCoins').textContent = '🪙 ' + (c ? c.coins : 0);
+  }
+
+  let shopItem = null;
+  function openShop(key, o) {
+    shopItem = { key, o };
+    const soon = !!o.soon;
+    $('shop').className = 'shop show' + (soon ? ' soon ' + o.soon : '');
+    $('shopIc').textContent = o.ic;
+    $('shopTitle').textContent = o.label;
+    if (soon) {
+      $('shopText').textContent = 'Den här exklusiva saken glöder! Den kommer snart.';
+      $('shopPrice').textContent = '✨ Kommer snart';
+    } else {
+      const have = myCoins();
+      $('shopText').textContent = draft.editingId
+        ? (have >= PRICE ? `Du har ${have} guldmynt.` : `Du har ${have} guldmynt. Hitta fler guldmynt i spelen!`)
+        : 'Skapa klart din gubbe först, sedan kan du samla guldmynt i spelen!';
+      $('shopPrice').textContent = `🔒 ${PRICE} 🪙`;
+      $('shopBuy').disabled = !draft.editingId || have < PRICE;
+    }
+    $('shopBuy').style.display = soon ? 'none' : '';
+    $('shopTry').style.display = soon ? 'none' : '';
+    tone(soon ? 988 : 660, .15, 'sine', .06);
+  }
+  const closeShop = () => { $('shop').className = 'shop'; shopItem = null; };
+  $('shopClose').onclick = () => { chime(); closeShop(); };
+  $('shop').addEventListener('click', e => { if (e.target === $('shop')) closeShop(); });
+  $('shopTry').onclick = () => {
+    if (!shopItem) return;
+    const { key, o } = shopItem;
+    if (!(key in draft.trial)) draft.trial[key] = draft.look[key];
+    closeShop();
+    setLook(key, o.id, true);
+  };
+  $('shopBuy').onclick = e => {
+    if (!shopItem || !draft.editingId) return;
+    const { key, o } = shopItem;
+    if (Save.buy(draft.editingId, key + ':' + o.id, PRICE)) {
+      sparks(e.clientX, e.clientY, 14);
+      fanfare();
+      delete draft.trial[key];
+      closeShop();
+      updateCoins();
+      setLook(key, o.id);
+    }
+  };
+
+  function setLook(key, val, trying = false) {
+    if (!trying && isOwned(key, findItem(key, val))) delete draft.trial[key];
     draft.look[key] = val;
     if (key !== 'outfit' && key !== 'hat' && key !== 'hatColor') draft.look.outfit = 'egen';
     pop(); refresh(); renderOpts();
@@ -415,9 +556,11 @@
     g.className = 'styles';
     list.forEach(o => {
       const b = document.createElement('button');
-      b.className = 'style' + (draft.look[key] === o.id ? ' on' : '');
-      b.innerHTML = `<span class="ic">${o.ic}</span>${o.label}`;
-      b.onclick = () => { setLook(key, o.id); };
+      const owned = isOwned(key, o);
+      b.className = 'style' + (draft.look[key] === o.id ? ' on' : '') + (o.soon ? ' soon ' + o.soon : !owned ? ' locked' : '');
+      b.innerHTML = `<span class="ic">${o.ic}</span>${o.label}` +
+        (o.soon ? '<span class="tag soonTag">Kommer snart</span>' : !owned ? `<span class="tag">🔒 ${PRICE} 🪙</span>` : '');
+      b.onclick = () => { if (!owned) openShop(key, o); else setLook(key, o.id); };
       g.appendChild(b);
     });
     return g;
@@ -473,23 +616,35 @@
     }
   }
   const pick = a => a[Math.floor(Math.random() * a.length)];
+  const pickOwned = key => pick(OPT[key].filter(o => isOwned(key, o)));
   $('btnRandom').onclick = e => {
     sparks(e.clientX, e.clientY, 6);
     Object.assign(draft.look, {
-      skin: pick(OPT.skin), hair: pick(OPT.hair).id, hairColor: pick(OPT.hairColor), eyes: pick(OPT.eyes),
-      mouth: pick(OPT.mouth).id, extra: pick(OPT.extra).id,
-      top: pick(OPT.top).id, topColor: pick(OPT.cloth), topColor2: pick(OPT.cloth),
-      pattern: Math.random() < 0.5 ? 'enfargad' : pick(OPT.pattern).id,
-      print: Math.random() < 0.3 ? 'ingen' : pick(OPT.print).id, printColor: pick(OPT.cloth),
-      bottom: pick(OPT.bottom).id, bottomColor: pick(OPT.cloth),
-      shoeStyle: pick(OPT.shoeStyle).id, shoes: pick(OPT.cloth),
-      hat: Math.random() < 0.5 ? 'ingen' : pick(OPT.hat).id, hatColor: pick(OPT.cloth),
+      skin: pick(OPT.skin), hair: pickOwned('hair').id, hairColor: pick(OPT.hairColor), eyes: pick(OPT.eyes),
+      mouth: pickOwned('mouth').id, extra: pickOwned('extra').id,
+      top: pickOwned('top').id, topColor: pick(OPT.cloth), topColor2: pick(OPT.cloth),
+      pattern: Math.random() < 0.5 ? 'enfargad' : pickOwned('pattern').id,
+      print: Math.random() < 0.3 ? 'ingen' : pickOwned('print').id, printColor: pick(OPT.cloth),
+      bottom: pickOwned('bottom').id, bottomColor: pick(OPT.cloth),
+      shoeStyle: pickOwned('shoeStyle').id, shoes: pick(OPT.cloth),
+      hat: Math.random() < 0.5 ? 'ingen' : pickOwned('hat').id, hatColor: pick(OPT.cloth),
       outfit: 'egen'
     });
+    draft.trial = {};
     fanfare(); refresh(); renderOpts();
   };
-  $('btnDone').onclick = e => {
+  $('btnDone').onclick = async e => {
     sparks(e.clientX, e.clientY, 14);
+    let reverted = 0;
+    for (const key of Object.keys(draft.trial)) {
+      const it = findItem(key, draft.look[key]);
+      if (it && !isOwned(key, it)) { draft.look[key] = draft.trial[key]; reverted++; }
+    }
+    draft.trial = {};
+    if (reverted) {
+      toast('🔒 Saker du provade togs av. Lås upp dem med guldmynt!');
+      if (stage) await stage.setLook(draft.look, draft.gender);
+    }
     if (draft.editingId) {
       Save.updatePlayer(draft.editingId, p => { p.gender = draft.gender; p.look = { ...draft.look }; });
       Save.setActive(draft.editingId);
@@ -515,9 +670,18 @@
   };
   $('btnJump').onclick = () => { if (stage) { stage.bounce(); tone(880, .12, 'sine', .06); } };
 
+  function toast(text) {
+    const t = $('toast');
+    t.textContent = text;
+    t.classList.add('show');
+    clearTimeout(toast.tm);
+    toast.tm = setTimeout(() => t.classList.remove('show'), 3800);
+  }
+
   async function openDesigner(editId) {
     const editing = !!editId;
     draft.editingId = editId || null;
+    draft.trial = {};
     const ep = editing ? Save.get(editId) : null;
     if (ep) {
       draft.name = ep.name;
@@ -528,6 +692,7 @@
     document.body.classList.add('onboarding');
     $('hello').textContent = editing ? `Ändra din gubbe, ${draft.name}!` : `Designa din gubbe, ${draft.name}!`;
     tab = 'kropp';
+    updateCoins();
     renderTabs();
     renderOpts();
     goStep('design');
@@ -544,6 +709,18 @@
       s.focus('body');
     }
   }
+
+  // För föräldrar/test: Multiskolan.addCoins(500) i webbläsarens konsol
+  window.Multiskolan = {
+    addCoins(n = 100) {
+      const p = cur();
+      if (!p) return 'Ingen spelare vald';
+      Save.addCoins(p.id, n);
+      updateCoins();
+      if (document.body.classList.contains('onboarding')) renderOpts();
+      return Save.get(p.id).coins;
+    }
+  };
 
   /* ---------- Start ---------- */
   const ps = Save.players();
