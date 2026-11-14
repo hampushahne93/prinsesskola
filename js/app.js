@@ -300,6 +300,7 @@
     panel.style.setProperty('--c', getComputedStyle(c).getPropertyValue('--c'));
     fanfare(); happy();
     targetSpeed = 25;
+    if (c.dataset.href) { setTimeout(() => { location.href = c.dataset.href; }, 650); return; }
     setTimeout(() => overlay.classList.add('show'), 300);
   }
   function closeOverlay() { overlay.classList.remove('show'); targetSpeed = 1; chime(); say(defaultSay()); }

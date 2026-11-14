@@ -900,6 +900,7 @@ export function renderPortrait(look, gender, size = 256) {
 }
 
 export function preload() { return loadAssets(); }
+export { createCharacter, loadAssets };
 
 /* Helbild (används för tester och kan användas till förhandsvisningar) */
 export function renderSnapshot(look, gender, { size = 320, view = 'front', anim = 0.35 } = {}) {

@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
+<title>Guldmyntsjakten – Multiskolan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&display=swap" rel="stylesheet">
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+  }
+}
+</script>
+<style>
+  :root{--ink:#2a1f6b;--soft:#c9c3ff}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;overflow:hidden;background:#1a1a5e;color:#fff;font-family:'Fredoka','Trebuchet MS',system-ui,sans-serif;
+    user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;touch-action:none}
+  #game{position:fixed;inset:0;width:100%;height:100%;display:block}
+  button{font-family:inherit}
+
+  .hud{position:fixed;z-index:5;pointer-events:none}
+  .hud *{pointer-events:auto}
+  .top{top:14px;left:14px;display:flex;gap:10px;align-items:center}
+  .pill{background:rgba(20,14,70,.6);border:3px solid rgba(255,255,255,.8);border-radius:999px;padding:6px 14px;font-weight:700;font-size:18px;
+    backdrop-filter:blur(6px);box-shadow:0 0 18px rgba(62,232,255,.3)}
+  .back{cursor:pointer;color:#fff;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+  .back:hover{background:rgba(62,232,255,.3)}
+  .coins{background:#ffd84a;color:#4a3200;border-color:#fff3b0;box-shadow:0 4px 0 #b88a12, 0 0 18px rgba(255,216,74,.5)}
+  .title{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:5;font-weight:700;font-size:26px;pointer-events:none;
+    color:#ffd84a;-webkit-text-stroke:.07em #3a2600;paint-order:stroke fill;text-shadow:0 3px 0 #3a2600, 0 0 20px rgba(255,216,74,.6)}
+
+  #minimap{position:fixed;z-index:5;right:14px;top:14px;width:180px;height:180px;border-radius:20px;border:4px solid rgba(255,255,255,.85);
+    box-shadow:0 0 20px rgba(62,232,255,.4);background:#000}
+  #minimap.hide{display:none}
+  .help-btn{position:fixed;z-index:5;right:14px;top:206px;width:44px;height:44px;border-radius:50%;border:3px solid #fff;background:rgba(20,14,70,.6);
+    color:#fff;font-weight:700;font-size:22px;cursor:pointer}
+
+  #help{position:fixed;z-index:6;left:50%;bottom:24px;transform:translate(-50%,30px);opacity:0;pointer-events:none;transition:.4s cubic-bezier(.2,1.4,.4,1);
+    background:rgba(20,14,70,.82);border:3px solid rgba(255,255,255,.8);border-radius:24px;padding:14px 22px;backdrop-filter:blur(8px);
+    display:flex;gap:22px;align-items:center;font-size:17px;font-weight:600}
+  #help.show{opacity:1;transform:translate(-50%,0);pointer-events:auto}
+  #help kbd{display:inline-block;min-width:30px;text-align:center;background:#fff;color:var(--ink);border-radius:8px;padding:2px 7px;font-family:inherit;font-weight:700;box-shadow:0 3px 0 #8a85b8;margin:0 1px}
+  #help .grp{display:flex;flex-direction:column;align-items:center;gap:6px}
+  #help small{color:var(--soft);font-size:14px}
+  .touch #help .keys{display:none}
+  #help .touchhelp{display:none}
+  .touch #help .touchhelp{display:flex}
+
+  #lockHint{position:fixed;z-index:5;left:50%;top:60px;transform:translateX(-50%);background:rgba(20,14,70,.6);padding:5px 14px;border-radius:999px;
+    font-size:14px;color:var(--soft);pointer-events:none}
+  #lockHint.hide,.touch #lockHint{display:none}
+
+  /* Touch */
+  #joy{position:fixed;z-index:6;width:120px;height:120px;margin:-60px 0 0 -60px;border-radius:50%;border:4px solid rgba(255,255,255,.6);
+    background:rgba(20,14,70,.35);display:none;pointer-events:none}
+  #joy.show{display:block}
+  #knob{position:absolute;left:50%;top:50%;width:54px;height:54px;margin:-27px 0 0 -27px;border-radius:50%;background:#fff;box-shadow:0 0 16px rgba(62,232,255,.8)}
+  #jumpBtn{position:fixed;z-index:6;right:26px;bottom:30px;width:96px;height:96px;border-radius:50%;border:4px solid #fff;
+    background:radial-gradient(circle at 35% 30%, #b8fff6, #3ee8ff 55%, #1a7fa8);color:var(--ink);font-weight:700;font-size:18px;display:none;
+    box-shadow:0 6px 0 #0f5f80, 0 0 24px rgba(62,232,255,.6)}
+  .touch #jumpBtn{display:block}
+  .touch #minimap{width:130px;height:130px}
+  .touch .help-btn{top:156px}
+
+  #loading{position:fixed;inset:0;z-index:20;display:grid;place-items:center;text-align:center;font-size:24px;font-weight:600;
+    background:radial-gradient(ellipse at 50% 120%, #3b1d8f 0%, #1c1259 35%, #0d0b2e 75%);transition:opacity .6s}
+  #loading.hide{opacity:0;pointer-events:none}
+  .spin{width:72px;height:72px;margin:0 auto 18px;border-radius:50%;border:7px solid rgba(255,255,255,.2);border-top-color:#ffd84a;animation:spin 1s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  #loading .coin{font-size:64px;display:block;margin-bottom:10px;animation:flip 1.4s ease-in-out infinite}
+  @keyframes flip{50%{transform:rotateY(180deg)}}
+
+  @media (max-width:700px){ .title{display:none} .pill{font-size:15px;padding:5px 10px} }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div class="hud top">
+  <a class="pill back" href="index.html">◀ Meny</a>
+  <span class="pill" id="pname">…</span>
+  <span class="pill coins" id="pcoins">🪙 0</span>
+</div>
+<div class="title">Guldmyntsjakten</div>
+<canvas id="minimap" width="180" height="180"></canvas>
+<button class="help-btn" id="helpBtn" title="Hjälp (H)">?</button>
+<div id="lockHint">Klicka på spelet för att styra kameran med musen · Esc släpper musen</div>
+
+<div id="help">
+  <div class="grp keys"><div><kbd>W</kbd></div><div><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></div><small>Spring</small></div>
+  <div class="grp keys"><div><kbd style="min-width:90px">Mellanslag</kbd></div><small>Hoppa</small></div>
+  <div class="grp keys"><div><kbd>Shift</kbd></div><small>Gå</small></div>
+  <div class="grp keys"><div>🖱️</div><small>Titta runt</small></div>
+  <div class="grp keys"><div><kbd>M</kbd></div><small>Karta</small></div>
+  <div class="grp touchhelp"><div>🕹️</div><small>Vänster: spring</small></div>
+  <div class="grp touchhelp"><div>👆</div><small>Höger: titta runt</small></div>
+  <div class="grp touchhelp"><div>⤴️</div><small>Knappen: hoppa</small></div>
+</div>
+
+<div id="joy"><div id="knob"></div></div>
+<button id="jumpBtn">Hoppa</button>
+
+<div id="loading"><div><span class="coin">🪙</span><div class="spin"></div>Laddar Guldmyntsjakten...</div></div>
+
+<script src="js/save.js"></script>
+<script type="module" src="js/jakt.js"></script>
+</body>
+</html>
