@@ -434,6 +434,75 @@ function buildExtras(lookIn, parts) {
   return G;
 }
 
+/* ---------- Prylar (byggs i gubbens viloläge och fästs på ett ben) ---------- */
+function buildGear(name, A, restOf) {
+  const U = 1 / A.scale;                                   // 1 meter i modellens enheter
+  const out = [];
+  const attach = (boneName, obj, pos, quat = new THREE.Quaternion()) => {
+    const rest = restOf[boneName];
+    if (!rest) return;
+    const m = new THREE.Matrix4().compose(pos, quat, new THREE.Vector3(1, 1, 1));
+    new THREE.Matrix4().copy(rest).invert().multiply(m).decompose(obj.position, obj.quaternion, obj.scale);
+    out.push({ bone: boneName, obj });
+  };
+  const tp = n => new THREE.Vector3().setFromMatrixPosition(restOf[n]);
+  const wood = mat('#9a6a3e', { roughness: 0.8 }), metal = mat('#c9ced8', { metalness: 0.7, roughness: 0.3 }), grip = mat('#e23b4e', { roughness: 0.6 });
+
+  if (name === 'spade' || name === 'yxa') {
+    const hand = tp('RightHand'), fing = restOf.RightHandIndex1 ? tp('RightHandIndex1') : hand.clone();
+    const g = new THREE.Group();
+    const len = (name === 'spade' ? 0.95 : 0.7) * U;
+    g.add(mesh(new THREE.CylinderGeometry(0.018 * U, 0.02 * U, len, 10), wood, 0, len * 0.25, 0));
+    g.add(mesh(new THREE.CylinderGeometry(0.026 * U, 0.026 * U, 0.12 * U, 10), grip, 0, -len * 0.2, 0));
+    if (name === 'spade') {
+      const blade = mesh(new THREE.BoxGeometry(0.2 * U, 0.26 * U, 0.02 * U), metal, 0, len * 0.75 + 0.12 * U, 0);
+      g.add(blade);
+      const point = mesh(new THREE.ConeGeometry(0.14 * U, 0.08 * U, 4, 1), metal, 0, len * 0.75 + 0.29 * U, 0);
+      point.rotation.y = Math.PI / 4; point.scale.z = 0.15;
+      g.add(point);
+      g.add(mesh(new THREE.TorusGeometry(0.05 * U, 0.012 * U, 6, 16), wood, 0, -len * 0.27 - 0.04 * U, 0));
+    } else {
+      const head = mesh(new THREE.BoxGeometry(0.06 * U, 0.12 * U, 0.2 * U), metal, 0, len * 0.72, 0.06 * U);
+      g.add(head);
+      g.add(mesh(new THREE.BoxGeometry(0.02 * U, 0.16 * U, 0.06 * U), metal, 0, len * 0.72, 0.18 * U));
+    }
+    // Skaftet pekar framåt och lite uppåt, greppet i handen
+    const dir = fing.clone().sub(hand).normalize();
+    const pos = hand.clone().addScaledVector(dir, 0.05 * U);
+    const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0.55, 1).normalize());
+    attach('RightHand', g, pos, q);
+  }
+  if (name === 'fjader') {
+    const hb = A.parts.head, c = hb.getCenter(new THREE.Vector3()), s = hb.getSize(new THREE.Vector3());
+    const g = new THREE.Group();
+    const vane = mesh(new THREE.SphereGeometry(1, 16, 10), mat('#ffffff', { roughness: 0.9, emissive: '#ff9fe0', emissiveIntensity: 0.25 }), 0, 0.16 * U, 0);
+    vane.scale.set(0.05 * U, 0.17 * U, 0.008 * U);
+    const tip = mesh(new THREE.SphereGeometry(1, 12, 8), mat('#ff5ccf', { emissive: '#ff5ccf', emissiveIntensity: 0.4 }), 0, 0.29 * U, 0);
+    tip.scale.set(0.035 * U, 0.06 * U, 0.009 * U);
+    g.add(vane, tip, mesh(new THREE.CylinderGeometry(0.004 * U, 0.004 * U, 0.38 * U, 6), mat('#e8e0ff'), 0, 0.14 * U, 0));
+    const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.55, 0.3, -0.35));
+    attach('Head', g, new THREE.Vector3(c.x + s.x * 0.32, hb.max.y - s.y * 0.2, c.z - s.z * 0.2), q);
+  }
+  if (name === 'inlines') {
+    for (const [k, bone] of [['lfoot', 'LeftFoot'], ['rfoot', 'RightFoot']]) {
+      const fb = A.parts[k], fc = fb.getCenter(new THREE.Vector3()), fs = fb.getSize(new THREE.Vector3());
+      const g = new THREE.Group();
+      const r = 0.035 * U, y0 = fb.min.y - r * 0.9;
+      g.add(mesh(new THREE.BoxGeometry(fs.x * 0.32, 0.03 * U, fs.z * 0.95), mat('#2a2f45', { roughness: 0.4 }), fc.x, y0 + r * 0.9, fc.z));
+      for (let i = 0; i < 4; i++) {
+        const w = mesh(new THREE.CylinderGeometry(r, r, 0.022 * U, 16), mat(['#ff5ccf', '#3ee8ff', '#ffd84a', '#8dff5a'][i], { roughness: 0.3, emissive: ['#ff5ccf', '#3ee8ff', '#ffd84a', '#8dff5a'][i], emissiveIntensity: 0.25 }), fc.x, y0, fb.min.z + fs.z * (0.12 + i * 0.25));
+        w.rotation.z = Math.PI / 2;
+        g.add(w);
+      }
+      const cuff = mesh(new THREE.TorusGeometry(fs.x * 0.42, 0.018 * U, 8, 20), mat('#3ee8ff', { roughness: 0.4 }), fc.x, fb.max.y - fs.y * 0.05, fc.z - fs.z * 0.15);
+      cuff.rotation.x = Math.PI / 2;
+      g.add(cuff);
+      attach(bone, g, new THREE.Vector3());
+    }
+  }
+  return out;
+}
+
 /* ---------- Skapa en gubbe ---------- */
 async function textureFor(look, gender) {
   if (look.outfit && look.outfit !== 'egen') {
@@ -471,6 +540,14 @@ async function createCharacter(look, gender) {
     [...ex[k].children].forEach(o => { (bones[boneFor[k]] || bones.Hips).attach(o); if (o.userData.spin) spinners.push(o); });
     root.remove(ex[k]);
   }
+
+  // Benens viloläge (relativt gubben) – används för att fästa prylar
+  const restOf = {};
+  {
+    const inv = new THREE.Matrix4().copy(root.matrixWorld).invert();
+    for (const k in bones) restOf[k] = inv.clone().multiply(bones[k].matrixWorld);
+  }
+  const gear = {};
 
   // Glöd (exklusiva saker)
   const eff = resolveLook(look);
@@ -588,6 +665,17 @@ async function createCharacter(look, gender) {
   let blinkT = -1, nextBlink = 1.5 + Math.random() * 2, time = 0;
   return {
     root, bones, mixer, play, emote,
+    /* Prylar: 'spade', 'yxa', 'fjader', 'inlines' */
+    setGear(name, on) {
+      if (on && !gear[name]) {
+        gear[name] = buildGear(name, A, restOf);
+        for (const { bone, obj } of gear[name]) bones[bone] && bones[bone].add(obj);
+      } else if (!on && gear[name]) {
+        for (const { obj } of gear[name]) { obj.parent && obj.parent.remove(obj); obj.traverse(o => { if (o.isMesh) { o.geometry.dispose(); o.material.dispose(); } }); }
+        delete gear[name];
+      }
+    },
+    hasGear(name) { return !!gear[name]; },
     get state() { return current === actions.run ? 'run' : current === actions.jump ? 'jump' : 'idle'; },
     update(dt, lookX = 0, lookY = 0) {
       time += dt;
@@ -825,6 +913,7 @@ export function createStage(canvas, opts = {}) {
   }
   animate();
 
+  let shownGear = null;
   return {
     async setLook(lookData, gender) {
       const id = ++buildId;
@@ -835,6 +924,13 @@ export function createStage(canvas, opts = {}) {
       ch = next;
       holder.add(ch.root);
       if (wasState === 'run') ch.play('run', 0);
+      if (shownGear) ch.setGear(shownGear, true);
+    },
+    // Visa en pryl i handen/på kroppen (bara för att titta, t.ex. i Prylar-fliken)
+    showGear(name) {
+      if (ch && shownGear) ch.setGear(shownGear, false);
+      shownGear = name || null;
+      if (ch && shownGear) ch.setGear(shownGear, true);
     },
     focus(name) {
       const f = FOCUS[name] || FOCUS.body;

@@ -105,6 +105,16 @@ const heights = new Float32Array(N * N);
 for (let iz = 0; iz < N; iz++) for (let ix = 0; ix < N; ix++) {
   heights[iz * N + ix] = rawHeight(-HALF + ix * STEP, -HALF + iz * STEP);
 }
+/* Stenar som går att stå på */
+export const ROCKS = [];
+export function rockHeightAt(x, z) {
+  let best = -Infinity;
+  for (const r of ROCKS) {
+    const dx = x - r.x, dz = z - r.z, d2 = (dx * dx + dz * dz) / (r.r * r.r);
+    if (d2 < 1) { const h = r.cy + r.hy * Math.sqrt(1 - d2); if (h > best) best = h; }
+  }
+  return best;
+}
 export function heightAt(x, z) {
   const fx = Math.min(SEG - 0.0001, Math.max(0, (x + HALF) / STEP));
   const fz = Math.min(SEG - 0.0001, Math.max(0, (z + HALF) / STEP));
@@ -325,7 +335,8 @@ export function buildWorld(scene, { lowSpec = false } = {}) {
   }
 
   /* ---------- Stenar ---------- */
-  const colliders = [];      // { x, z, r } – sådant man inte kan springa igenom
+  const colliders = [];
+  ROCKS.length = 0;      // { x, z, r } – sådant man inte kan springa igenom
   {
     const n = 170, g = new THREE.DodecahedronGeometry(1, 0);
     const rocks = new THREE.InstancedMesh(g, new THREE.MeshLambertMaterial({ color: '#ffffff', flatShading: true }), n);
@@ -333,11 +344,13 @@ export function buildWorld(scene, { lowSpec = false } = {}) {
     for (let i = 0; i < n; i++) {
       const s = spot(WATER - 1, 1.2); if (!s) continue;
       const big = R() < 0.15, k = big ? 2 + R() * 2.5 : 0.3 + R() * 0.9;
-      Q.setFromEuler(new THREE.Euler(R() * 3, R() * 3, R() * 3));
+      Q.setFromEuler(new THREE.Euler((R() - 0.5) * 0.3, R() * 6.3, (R() - 0.5) * 0.3));
       S.set(k * (0.8 + R() * 0.5), k * (0.6 + R() * 0.4), k * (0.8 + R() * 0.5));
-      rocks.setMatrixAt(i, M.compose(P.set(s[0], s[1] + k * 0.15, s[2]), Q, S));
+      const cy = s[1] + k * 0.15 - (big ? k * 0.25 : 0);
+      rocks.setMatrixAt(i, M.compose(P.set(s[0], cy, s[2]), Q, S));
       rocks.setColorAt(i, rc[i % 3]);
-      if (k > 0.9) colliders.push({ x: s[0], z: s[2], r: k * 0.85, top: s[1] + k * 0.9 });
+      // Stenen blir mark man kan stå på (en kupol)
+      ROCKS.push({ x: s[0], z: s[2], r: Math.min(S.x, S.z) * 0.92, cy, hy: S.y * 0.9 });
     }
     rocks.castShadow = true; rocks.receiveShadow = true;
     scene.add(rocks);
@@ -448,12 +461,20 @@ export async function loadFarms(scene, colliders) {
 
   // Ladornas dörrar: flytta geometrin så att gångjärnet hamnar i origo
   const KITS = {
-    farm: { src: barn, scale: 1, body: [-3.86, 3.86, -3.99, 4.06], top: 6.0, gap: [-1.93, 1.84], frontZ: 3.92,
+    farm: { src: barn, scale: 1, body: [-3.86, 3.86, -3.99, 4.06], top: 6.0, gap: [-1.65, 1.65], frontZ: 3.92,
       hinges: { Door2: [-1.93, 3.9, -1], Door: [1.84, 3.9, 1] } },
-    big: { src: bigBarn, scale: 1.5, body: [-3.86, 3.86, -4.06, 3.99], top: 7.9, gap: [-2.98, 2.87], frontZ: 3.84,
-      hinges: { Door2: [-2.98, 3.84, -1], Door: [2.87, 3.84, 1] } }
+    // Stora ladan har skjutdörrar: i modellen står de öppna, stängda glider de ihop över öppningen
+    big: { src: bigBarn, scale: 1.5, body: [-3.86, 3.86, -4.06, 3.99], top: 7.9, gap: [-1.65, 1.65], frontZ: 3.84,
+      slide: { Door2: 1.14, Door: -1.03 } }
   };
   for (const kit of Object.values(KITS)) {
+    if (kit.slide) {
+      kit.src.children.forEach(o => {
+        const key = /Door2/i.test(o.name) ? 'Door2' : /Door/i.test(o.name) ? 'Door' : null;
+        if (key) o.userData.slide = kit.slide[key];
+      });
+      continue;
+    }
     kit.src.children.forEach(o => {
       const key = /Door2/i.test(o.name) ? 'Door2' : /Door/i.test(o.name) ? 'Door' : null;
       if (!key) return;
@@ -462,6 +483,22 @@ export async function loadFarms(scene, colliders) {
       o.userData.hinge = [hx, hz, kit.hinges[key][2]];
     });
   }
+  // Trägolv (plankor) – ritas på en canvas
+  const plankTex = (() => {
+    const cv = document.createElement('canvas'); cv.width = cv.height = 512;
+    const x = cv.getContext('2d'), cols = ['#8a5a36', '#7b4f2f', '#946340', '#835532', '#9c6a45'];
+    const R = rng(77);
+    for (let i = 0; i < 8; i++) {
+      x.fillStyle = cols[i % cols.length]; x.fillRect(0, i * 64, 512, 64);
+      for (let k = 0; k < 14; k++) { x.fillStyle = 'rgba(60,30,10,.12)'; x.fillRect(0, i * 64 + R() * 64, 512, 1 + R() * 2); }   // ådring
+      const cut = R() * 400 + 50;
+      x.fillStyle = '#4a2c18'; x.fillRect(0, i * 64, 512, 3); x.fillRect(cut, i * 64, 3, 64);                               // fogar
+      for (const nx of [12, cut - 10, cut + 14, 498]) for (const ny of [14, 50]) { x.fillStyle = '#3a2414'; x.beginPath(); x.arc(nx, i * 64 + ny, 2.5, 0, 7); x.fill(); }
+    }
+    const t = new THREE.CanvasTexture(cv);
+    t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 4;
+    return t;
+  })();
   const hay = new THREE.BoxGeometry(1.3, 0.7, 0.8);
   const hayMat = new THREE.MeshLambertMaterial({ color: '#e8c55a' });
   const hayBand = new THREE.MeshLambertMaterial({ color: '#b8873a' });
@@ -488,7 +525,10 @@ export async function loadFarms(scene, colliders) {
     b.traverse(o => { if (o.isMesh) o.material = (Array.isArray(o.material) ? o.material : [o.material]).map(m => { const mm = m.clone(); mm.side = THREE.DoubleSide; return mm; }); });
     g.add(b);
     const doors = [];
-    b.children.forEach(o => { if (o.userData.hinge) { o.position.set(o.userData.hinge[0], 0, o.userData.hinge[1]); doors.push(o); } });
+    b.children.forEach(o => {
+      if (o.userData.hinge) { o.position.set(o.userData.hinge[0], 0, o.userData.hinge[1]); doors.push(o); }
+      if (o.userData.slide) { o.position.x = o.userData.slide; doors.push(o); }    // börjar stängd
+    });
 
     // Väggar som kollision (dörröppningen stängs av en egen låda)
     const [x0, x1, z0, z1] = kit.body.map(v => v * S), T = 0.35, top = f.h + kit.top * S;
@@ -500,8 +540,18 @@ export async function loadFarms(scene, colliders) {
     box(f, (g1 + x1) / 2, fz, x1 - g1, T, top);                       // fram höger
     const door = box(f, (g0 + g1) / 2, fz, g1 - g0, T, top, { active: true });
 
+    // Trägolv ovanpå modellens golv
+    const FLOOR = 0.27 * S;
+    const fw = x1 - x0 - 0.3, fd = z1 - z0 - 0.3;
+    const ft = plankTex.clone(); ft.needsUpdate = true; ft.repeat.set(fw / 4, fd / 4);
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(fw, fd), new THREE.MeshLambertMaterial({ map: ft }));
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.set((x0 + x1) / 2, FLOOR - 0.04, (z0 + z1) / 2 + oz);
+    floor.receiveShadow = true;
+    g.add(floor);
+
     // Höbalar inne i ladan
-    for (const [hx, hz, hy, r] of [[x0 + 1.2, z0 + oz + 1.0, 0.35, 0], [x0 + 2.6, z0 + oz + 1.0, 0.35, 0], [x0 + 1.9, z0 + oz + 1.0, 1.05, 0], [x1 - 1.0, z0 + oz + 1.6, 0.35, Math.PI / 2]]) {
+    for (const [hx, hz, hy, r] of [[x0 + 1.2, z0 + oz + 1.0, 0.35 + FLOOR, 0], [x0 + 2.6, z0 + oz + 1.0, 0.35 + FLOOR, 0], [x0 + 1.9, z0 + oz + 1.0, 1.05 + FLOOR, 0], [x1 - 1.0, z0 + oz + 1.6, 0.35 + FLOOR, Math.PI / 2]]) {
       const m = new THREE.Mesh(hay, hayMat);
       m.position.set(hx, hy, hz); m.rotation.y = r; m.castShadow = m.receiveShadow = true;
       g.add(m);
@@ -516,7 +566,7 @@ export async function loadFarms(scene, colliders) {
       return { minX: Math.min(a[0], c[0]) + 0.2, maxX: Math.max(a[0], c[0]) - 0.2, minZ: Math.min(a[1], c[1]) + 0.2, maxZ: Math.max(a[1], c[1]) - 0.2 };
     })();
     barns.push({
-      kind: f.kind, doors, doorCollider: door, door: { x: dx, z: dz }, inner, roof: f.h + 2.2 * S,
+      kind: f.kind, doors, doorCollider: door, door: { x: dx, z: dz }, inner, roof: f.h + 2.2 * S, floorY: f.h - 0.05 + FLOOR,
       open: false, t: 0,
       toggle() { this.open = !this.open; }
     });
@@ -575,7 +625,10 @@ export async function loadFarms(scene, colliders) {
         if (b.t === target) continue;
         b.t = target > b.t ? Math.min(1, b.t + dt * 1.6) : Math.max(0, b.t - dt * 1.6);
         const a = ease(b.t) * 1.75;
-        for (const d of b.doors) d.rotation.y = a * d.userData.hinge[2];
+        for (const d of b.doors) {
+          if (d.userData.slide) d.position.x = d.userData.slide * (1 - ease(b.t));     // skjutdörr
+          else d.rotation.y = a * d.userData.hinge[2];                                 // gångjärnsdörr
+        }
         b.doorCollider.active = b.t < 0.7;
       }
     }

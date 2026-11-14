@@ -179,7 +179,16 @@
     { id: 'byxor', ic: '👖', label: 'Byxor', focus: 'bottom' },
     { id: 'skor', ic: '👟', label: 'Skor', focus: 'shoes' },
     { id: 'hatt', ic: '🧢', label: 'Hatt', focus: 'hat' },
-    { id: 'drakt', ic: '🦸', label: 'Dräkter', focus: 'body' }
+    { id: 'drakt', ic: '🦸', label: 'Dräkter', focus: 'body' },
+    { id: 'prylar', ic: '🎒', label: 'Prylar', focus: 'body' }
+  ];
+  // Prylar som man tar med in i Guldmyntsjakten (tangent 1–4 där)
+  const GEAR_PRICE = 1000;
+  const GEAR = [
+    { id: 'spade', ic: '🪏', label: 'Spade', key: 1, tip: 'Gräv efter skatter i Guldmyntsjakten.' },
+    { id: 'yxa', ic: '🪓', label: 'Yxa', key: 2, tip: 'En stark yxa att ha i handen.' },
+    { id: 'fjader', ic: '🪶', label: 'Fjäder', key: 3, tip: 'Du hoppar dubbelt så högt!' },
+    { id: 'inlines', ic: '🛼', label: 'Inlines', key: 4, tip: 'Du springer dubbelt så snabbt!' }
   ];
 
   /* ---------- Ljud ---------- */
@@ -504,13 +513,18 @@
 
   /* ---------- Designerns flikar ---------- */
   let tab = 'kropp';
+  let gearShown = null;
   function renderTabs() {
     $('tabs').innerHTML = '';
     TABS.forEach(t => {
       const b = document.createElement('button');
       b.className = 'tab' + (t.id === tab ? ' on' : '');
       b.innerHTML = `<span>${t.ic}</span><small>${t.label}</small>`;
-      b.onclick = () => { tab = t.id; tone(700, .08, 'sine', .05); renderTabs(); renderOpts(); stage && stage.focus(t.focus); };
+      b.onclick = () => {
+        tab = t.id; tone(700, .08, 'sine', .05);
+        if (tab !== 'prylar' && gearShown) { gearShown = null; stage && stage.showGear && stage.showGear(null); }
+        renderTabs(); renderOpts(); stage && stage.focus(t.focus);
+      };
       $('tabs').appendChild(b);
     });
   }
@@ -533,7 +547,8 @@
 
   let shopItem = null;
   function openShop(key, o) {
-    shopItem = { key, o };
+    const gear = key === 'gear', PRICE = gear ? GEAR_PRICE : 100;
+    shopItem = { key, o, price: PRICE };
     const soon = !!o.soon;
     $('shop').className = 'shop show' + (soon ? ' soon ' + o.soon : '');
     $('shopIc').textContent = o.ic;
@@ -543,14 +558,14 @@
       $('shopPrice').textContent = '✨ Kommer snart';
     } else {
       const have = myCoins();
-      $('shopText').textContent = draft.editingId
+      $('shopText').textContent = (gear ? o.tip + ' Tryck ' + o.key + ' i Guldmyntsjakten för att ta på/av. ' : '') + (draft.editingId
         ? (have >= PRICE ? `Du har ${have} guldmynt.` : `Du har ${have} guldmynt. Hitta fler guldmynt i spelen!`)
-        : 'Skapa klart din gubbe först, sedan kan du samla guldmynt i spelen!';
+        : 'Skapa klart din gubbe först, sedan kan du samla guldmynt i spelen!');
       $('shopPrice').textContent = `🔒 ${PRICE} 🪙`;
       $('shopBuy').disabled = !draft.editingId || have < PRICE;
     }
     $('shopBuy').style.display = soon ? 'none' : '';
-    $('shopTry').style.display = soon ? 'none' : '';
+    $('shopTry').style.display = soon || gear ? 'none' : '';
     tone(soon ? 988 : 660, .15, 'sine', .06);
   }
   const closeShop = () => { $('shop').className = 'shop'; shopItem = null; };
@@ -565,13 +580,14 @@
   };
   $('shopBuy').onclick = e => {
     if (!shopItem || !draft.editingId) return;
-    const { key, o } = shopItem;
-    if (Save.buy(draft.editingId, key + ':' + o.id, PRICE)) {
+    const { key, o, price } = shopItem;
+    if (Save.buy(draft.editingId, key + ':' + o.id, price)) {
       sparks(e.clientX, e.clientY, 14);
       fanfare();
-      delete draft.trial[key];
       closeShop();
       updateCoins();
+      if (key === 'gear') { toast(`🎉 ${o.label} är din! Tryck ${o.key} i Guldmyntsjakten.`); renderOpts(); return; }
+      delete draft.trial[key];
       setLook(key, o.id);
     }
   };
@@ -592,7 +608,7 @@
       const owned = isOwned(key, o);
       b.className = 'style' + (draft.look[key] === o.id ? ' on' : '') + (o.soon ? ' soon ' + o.soon : !owned ? ' locked' : '');
       b.innerHTML = `<span class="ic">${o.ic}</span>${o.label}` +
-        (o.soon ? '<span class="tag soonTag">Kommer snart</span>' : !owned ? `<span class="tag">🔒 ${PRICE} 🪙</span>` : '');
+        (o.soon ? '<span class="tag soonTag">Kommer snart</span>' : !owned ? `<span class="tag">🔒 100 🪙</span>` : '');
       b.onclick = () => { if (!owned) openShop(key, o); else setLook(key, o.id); };
       g.appendChild(b);
     });
@@ -646,6 +662,28 @@
       if (L.hat && !['ingen', 'krona'].includes(L.hat)) o.append(h4('Färg'), swatches(OPT.cloth, 'hatColor'));
     } else if (tab === 'drakt') {
       o.append(h4('Färdiga dräkter'), note('Välj "Egen" för att designa själv. Hattar går att ha till alla dräkter.'), styleGrid(OPT.outfit, 'outfit'));
+    } else if (tab === 'prylar') {
+      o.append(h4('Prylar till Guldmyntsjakten'), note(`Varje pryl kostar ${GEAR_PRICE} 🪙. När du har köpt den trycker du på siffran i Guldmyntsjakten för att ta på den – tryck igen för att ta av.`));
+      const g = document.createElement('div');
+      g.className = 'styles';
+      const p = owner();
+      GEAR.forEach(it => {
+        const owned = !!(p && p.unlocked.includes('gear:' + it.id));
+        const b = document.createElement('button');
+        b.className = 'style' + (gearShown === it.id ? ' on' : '') + (owned ? '' : ' locked');
+        b.innerHTML = `<span class="ic">${it.ic}</span>${it.label}` +
+          (owned ? `<span class="tag ownTag">✅ Tangent ${it.key}</span>` : `<span class="tag">🔒 ${GEAR_PRICE} 🪙</span>`);
+        b.onclick = () => {
+          gearShown = gearShown === it.id ? null : it.id;     // visa prylen på gubben
+          stage && stage.showGear && stage.showGear(gearShown);
+          pop(); renderOpts();
+          if (!owned) openShop('gear', it);
+        };
+        g.appendChild(b);
+      });
+      o.append(g);
+      const sel = GEAR.find(x => x.id === gearShown);
+      if (sel) o.append(note(`${sel.ic} ${sel.label}: ${sel.tip}`));
     }
   }
   const pick = a => a[Math.floor(Math.random() * a.length)];

@@ -3,7 +3,7 @@
    ========================================================= */
 import * as THREE from 'three';
 import { createCharacter } from './avatar.js';
-import { buildWorld, heightAt, HALF, PLAY, WATER, FARMS, loadFarms } from './world.js';
+import { buildWorld, heightAt, rockHeightAt, HALF, PLAY, WATER, FARMS, loadFarms } from './world.js';
 
 const $ = id => document.getElementById(id);
 const touch = matchMedia('(pointer: coarse)').matches;
@@ -63,9 +63,52 @@ const RUN = 7;            // meter per sekund (ca 1 minut diagonalt över kartan
 const WALK = 2.6;
 const GRAVITY = -22, JUMP = 9.5;     // ca 2 m högt: räcker för att hoppa över staketen
 let ch = null;
+/* ---------- Prylar (köps i "Ändra gubbe" → Prylar) ---------- */
+const GEAR = [
+  { id: 'spade', key: '1', name: 'Spade', icon: '<svg viewBox="0 0 40 40"><rect x="18" y="4" width="4" height="20" rx="2" fill="#b07a48"/><rect x="14" y="2" width="12" height="5" rx="2.5" fill="#e23b4e"/><path d="M11 22h18v7c0 5-4 9-9 9s-9-4-9-9z" fill="#cfd5df" stroke="#8a93a6" stroke-width="1.5"/></svg>', hand: true },
+  { id: 'yxa', key: '2', name: 'Yxa', icon: '🪓', hand: true },
+  { id: 'fjader', key: '3', name: 'Fjäder', icon: '🪶', tip: 'Hoppa dubbelt så högt' },
+  { id: 'inlines', key: '4', name: 'Inlines', icon: '🛼', tip: 'Spring dubbelt så snabbt' }
+];
+const owns = id => !!(player && player.unlocked && player.unlocked.includes('gear:' + id));
+const gearOn = new Set(player && Array.isArray(player.gearOn) ? player.gearOn.filter(owns) : []);
+function saveGear() { if (player) Save.updatePlayer(player.id, p => { p.gearOn = [...gearOn]; }); }
+function renderHotbar() {
+  const bar = $('hotbar');
+  bar.innerHTML = '';
+  for (const g of GEAR) {
+    const b = document.createElement('button');
+    b.className = 'slot' + (owns(g.id) ? '' : ' locked') + (gearOn.has(g.id) ? ' on' : '');
+    b.innerHTML = `<span class="k">${g.key}</span><span class="ic">${g.icon}</span><span class="nm">${g.name}</span>` + (owns(g.id) ? '' : '<span class="lock">🔒</span>');
+    b.title = g.tip || g.name;
+    b.onclick = () => toggleGear(g.id);
+    bar.appendChild(b);
+  }
+}
+let toastTm = 0;
+function toast(t) { const el = $('toast'); el.textContent = t; el.classList.add('show'); clearTimeout(toastTm); toastTm = setTimeout(() => el.classList.remove('show'), 2600); }
+function toggleGear(id) {
+  const g = GEAR.find(x => x.id === id);
+  if (!owns(id)) { toast(`🔒 ${g.name} låser du upp under Ändra gubbe → Prylar (1000 🪙)`); return; }
+  if (gearOn.has(id)) { gearOn.delete(id); ch && ch.setGear(id, false); toast(`${g.name} av`); }
+  else {
+    if (g.hand) for (const o of GEAR) if (o.hand && gearOn.has(o.id)) { gearOn.delete(o.id); ch && ch.setGear(o.id, false); }
+    gearOn.add(id); ch && ch.setGear(id, true);
+    toast(`${g.name} på!` + (g.tip ? ' ' + g.tip + '!' : ''));
+  }
+  saveGear();
+  renderHotbar();
+}
+renderHotbar();
+addEventListener('keydown', e => {
+  const g = GEAR.find(x => e.code === 'Digit' + x.key || e.code === 'Numpad' + x.key);
+  if (g) toggleGear(g.id);
+});
+
 createCharacter(look, player ? player.gender : 'kille').then(c => {
   ch = c;
   scene.add(c.root);
+  for (const id of gearOn) c.setGear(id, true);
   $('loading').classList.add('hide');
   showHelp();
 }).catch(e => {
@@ -145,6 +188,10 @@ canvas.addEventListener('touchcancel', endTouch);
 $('jumpBtn').addEventListener('touchstart', e => { e.preventDefault(); jump(); }, { passive: false });
 $('jumpBtn').addEventListener('click', jump);
 
+function barnAt(x, z) {
+  return farms ? farms.barns.find(b => x > b.inner.minX - 0.15 && x < b.inner.maxX + 0.15 && z > b.inner.minZ - 0.15 && z < b.inner.maxZ + 0.15) : null;
+}
+function groundAt(x, z) { const b = barnAt(x, z); return b ? b.floorY : Math.max(heightAt(x, z), rockHeightAt(x, z)); }
 let nearBarn = null;
 function useDoor() { if (nearBarn) nearBarn.toggle(); }
 addEventListener('keydown', e => { if (e.code === 'KeyE' || e.code === 'Enter') useDoor(); });
@@ -153,7 +200,8 @@ $('prompt').addEventListener('touchstart', e => { e.preventDefault(); useDoor();
 
 function jump() {
   if (!ch || !P.grounded) return;
-  P.vy = JUMP; P.grounded = false;
+  P.y = Math.max(P.y, groundAt(P.x, P.z));
+  P.vy = JUMP * (gearOn.has('fjader') ? Math.SQRT2 : 1); P.grounded = false;   // fjädern: dubbelt så högt
   ch.play('jump', 0.08);
 }
 
@@ -185,7 +233,8 @@ function update(dt) {
   right.set(Math.cos(yaw), 0, -Math.sin(yaw));
   move.set(0, 0, 0).addScaledVector(fwd, iz).addScaledVector(right, ix);
   const moving = mag > 0.08;
-  const target = moving ? (walking ? WALK : RUN) : 0;
+  const boost = gearOn.has('inlines') ? 2 : 1;                     // inlines: dubbelt så snabbt
+  const target = moving ? (walking ? WALK : RUN) * boost : 0;
   P.speed += (target - P.speed) * Math.min(1, dt * 10);
   if (moving) {
     move.normalize();
@@ -195,8 +244,9 @@ function update(dt) {
     P.heading += d * Math.min(1, dt * 12);
     let nx = P.x + move.x * P.speed * dt, nz = P.z + move.z * P.speed * dt;
     // Inte för brant uppför (berg runt kanten)
-    const climb = heightAt(nx, nz) - heightAt(P.x, P.z);
-    if (P.grounded && climb / Math.max(0.001, P.speed * dt) > 1.6) { nx = P.x; nz = P.z; }
+    const climb = groundAt(nx, nz) - groundAt(P.x, P.z);
+    if (P.grounded && climb > 0.45 && climb / Math.max(0.001, P.speed * dt) > 1.6) { nx = P.x; nz = P.z; }   // låga trösklar går bra
+    if (!P.grounded && groundAt(nx, nz) > P.y + 0.35) { nx = P.x; nz = P.z; }   // i luften: studsa inte in i stenar
     // Stenar, träd och kristaller
     for (const c of world.colliders) {
       if (c.active === false) continue;                       // öppen ladudörr
@@ -214,14 +264,17 @@ function update(dt) {
     P.z = Math.max(-PLAY, Math.min(PLAY, nz));
   }
 
-  // Hopp och mark
-  const ground = heightAt(P.x, P.z);
+  // Hopp och mark (inne i en lada går man på trägolvet)
+  const ground = groundAt(P.x, P.z);
   if (!P.grounded) {
     P.vy += GRAVITY * dt;
     P.y += P.vy * dt;
-    if (P.y <= ground) { P.y = ground; P.vy = 0; P.grounded = true; if (ch) ch.play(moving ? 'run' : 'idle', 0.15); }
+    if (P.y <= ground && P.vy <= 0) { P.y = ground; P.vy = 0; P.grounded = true; if (ch) ch.play(moving ? 'run' : 'idle', 0.15); }
+    else if (P.y < ground) P.y = ground;           // uppåt i en backe: följ marken, men fortsätt hoppet
+  } else if (ground < P.y - 0.6) {
+    P.grounded = false; P.vy = 0;                  // gick över en kant – falla
   } else {
-    P.y += (ground - P.y) * Math.min(1, dt * 20);
+    P.y = ground;
   }
 
   // Animationer
@@ -230,9 +283,9 @@ function update(dt) {
       if (moving && !wasMoving) ch.play('run', 0.15);
       if (!moving && wasMoving) ch.play('idle', 0.25);
     }
-    ch.mixer.timeScale = moving && walking ? 0.55 : 1;
+    ch.mixer.timeScale = moving && walking ? 0.55 : moving && gearOn.has('inlines') ? 1.35 : 1;
     wasMoving = moving;
-    ch.root.position.set(P.x, P.y - (P.y < WATER ? 0 : 0), P.z);
+    ch.root.position.set(P.x, P.y + (gearOn.has('inlines') ? 0.07 : 0), P.z);
     ch.root.rotation.y = P.heading;
     ch.update(dt);
   }
@@ -241,7 +294,7 @@ function update(dt) {
   camTarget.set(P.x, P.y + 1.6, P.z);
   // Dra in kameran om något (vägg, sten) är i vägen
   let d = dist;
-  const inBarn = farms && farms.barns.find(b => P.x > b.inner.minX && P.x < b.inner.maxX && P.z > b.inner.minZ && P.z < b.inner.maxZ);
+  const inBarn = barnAt(P.x, P.z);
   if (inBarn) d = Math.min(d, 4.2);
   const sx = Math.sin(yaw) * Math.cos(pitch), sz = Math.cos(yaw) * Math.cos(pitch), sy = Math.sin(pitch);
   for (let st = 0.6; st <= d; st += 0.35) {
@@ -254,7 +307,7 @@ function update(dt) {
   const cx = camTarget.x + Math.sin(yaw) * Math.cos(pitch) * d;
   const cz = camTarget.z + Math.cos(yaw) * Math.cos(pitch) * d;
   let cy = camTarget.y + Math.sin(pitch) * d;
-  cy = Math.max(cy, heightAt(cx, cz) + 0.6);
+  cy = Math.max(cy, Math.max(heightAt(cx, cz), rockHeightAt(cx, cz)) + 0.6);
   let ccx = cx, ccz = cz;
   if (inBarn) {   // inne i ladan: kameran stannar innanför väggarna och under taket
     const m = 0.5, I = inBarn.inner;
@@ -299,4 +352,4 @@ function loop() {
 loop();
 
 // För test: Jakt.teleport(x, z)
-window.Jakt = { P, get farms() { return farms; }, get cam() { return camera.position.toArray(); }, teleport(x, z) { P.x = x; P.z = z; P.y = heightAt(x, z); }, get yaw() { return yaw; }, set yaw(v) { yaw = v; }, set pitch(v) { pitch = v; }, set dist(v) { dist = v; }, keys };
+window.Jakt = { P, step(n = 1, dt = 1 / 60) { for (let i = 0; i < n; i++) { update(dt); if (farms) farms.update(0, dt); } }, get farms() { return farms; }, get cam() { return camera.position.toArray(); }, teleport(x, z) { P.x = x; P.z = z; P.y = groundAt(x, z); P.vy = 0; P.grounded = true; }, get yaw() { return yaw; }, set yaw(v) { yaw = v; }, set pitch(v) { pitch = v; }, set dist(v) { dist = v; }, keys };
