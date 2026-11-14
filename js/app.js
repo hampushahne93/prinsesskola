@@ -804,9 +804,10 @@
     showMenu();
     preload3D();          // så att "Ändra" går snabbt
   } else {
-    // Flera gubbar: fråga vem som spelar
-    if (cur()) showMenu();
-    openWho();
+    // Flera gubbar: fortsätt med den som spelade senast (byt uppe till vänster).
+    // Bara om ingen är vald frågar vi vem som spelar.
+    if (cur()) { showMenu(); preload3D(); }
+    else openWho();
   }
 
   /* ---------- Tangentbord ---------- */
