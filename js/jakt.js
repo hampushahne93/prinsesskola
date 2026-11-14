@@ -83,10 +83,43 @@ async function spawnChests(spots) {
     const mound = new THREE.Mesh(moundGeo, moundMat);
     mound.position.set(s.x, s.y - 0.05, s.z); mound.rotation.y = s.rot;
     scene.add(mound);
-    digs.push({ ...s, obj: o, lids, mound, dug: false, rise: 0, open: false, t: 0, buried: true });
+    // Träskylt bredvid högen
+    const sign = makeSign();
+    const sx = s.x + Math.cos(s.rot) * 1.1, sz = s.z - Math.sin(s.rot) * 1.1;
+    sign.position.set(sx, heightAt(sx, sz) - 0.05, sz); sign.rotation.y = s.rot + 0.25; sign.scale.setScalar(1.45);
+    scene.add(sign);
+    world.colliders.push({ x: sx, z: sz, r: 0.18 });
+    digs.push({ ...s, obj: o, lids, mound, sign, dug: false, rise: 0, open: false, t: 0, buried: true });
   }
 }
 const digs = [];
+// Skylt: stolpe + bräda med text "Skatt?" och ett rött kryss
+const signParts = (() => {
+  const c = document.createElement('canvas'); c.width = 256; c.height = 128;
+  const g = c.getContext('2d');
+  g.fillStyle = '#c8955a'; g.fillRect(0, 0, 256, 128);
+  g.strokeStyle = 'rgba(90,55,25,.35)'; g.lineWidth = 3;
+  for (let y = 18; y < 128; y += 30) { g.beginPath(); g.moveTo(0, y); g.bezierCurveTo(80, y + 6, 170, y - 6, 256, y + 2); g.stroke(); }
+  g.strokeStyle = '#7a4a22'; g.lineWidth = 8; g.strokeRect(4, 4, 248, 120);
+  g.fillStyle = '#4a2a10'; g.font = 'bold 52px Fredoka, Arial Rounded MT Bold, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText('Skatt?', 150, 66);
+  g.strokeStyle = '#e23b4e'; g.lineWidth = 12; g.lineCap = 'round';
+  g.beginPath(); g.moveTo(22, 40); g.lineTo(66, 88); g.moveTo(66, 40); g.lineTo(22, 88); g.stroke();
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  const wood = new THREE.MeshLambertMaterial({ color: '#8a5a32', flatShading: true });
+  return { board: new THREE.MeshLambertMaterial({ map: t }), wood };
+})();
+function makeSign() {
+  const g = new THREE.Group();
+  const post = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1.25, 0.1), signParts.wood); post.position.y = 0.62;
+  const back = new THREE.Mesh(new THREE.BoxGeometry(0.86, 0.44, 0.05), signParts.wood); back.position.set(0, 1.08, -0.01);
+  const face = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.4), signParts.board); face.position.set(0, 1.08, 0.016);
+  const face2 = face.clone(); face2.rotation.y = Math.PI; face2.position.z = -0.036;
+  back.rotation.z = face.rotation.z = face2.rotation.z = 0.06;
+  g.add(post, back, face, face2);
+  g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+  return g;
+}
 const moundGeo = new THREE.SphereGeometry(0.75, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2); moundGeo.scale(1, 0.22, 0.8);
 const moundMat = new THREE.MeshLambertMaterial({ color: '#7a5a3a', flatShading: true });
 const starMat = (() => {
