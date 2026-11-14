@@ -306,11 +306,42 @@
   $('back').onclick = closeOverlay;
   overlay.addEventListener('click', e => { if (e.target === overlay) closeOverlay(); });
 
+  /* ---------- Min gubbe i menyn ---------- */
+  let meStage = null, meKey = '';
+  const EMOTE_SAY = {
+    vinka: n => `${n} vinkar hej! 👋`, dansa: n => `Snygga moves, ${n}! 💃`, flexa: n => 'Vilka muskler! 💪',
+    snurra: () => 'Wiii! 🌀', heja: n => `Heja ${n}! 🎉`, buga: () => 'Tack, tack! 🙇', hoppa: () => 'Hopp! 🦘', spring: () => 'Brrrm! 🏃'
+  };
+  async function showMe() {
+    const p = cur();
+    if (!p) return;
+    $('meName').textContent = p.name;
+    const mod = await preload3D();
+    if (!mod) return;
+    if (!meStage) meStage = mod.createStage($('meCanvas'), {
+      mini: true,
+      onEmote: n => {
+        if (sel >= 0 || !EMOTE_SAY[n] || Math.random() < 0.5 || overlay.classList.contains('show')) return;
+        say(EMOTE_SAY[n](cur() ? cur().name : ''));
+        clearTimeout(showMe.tm);
+        showMe.tm = setTimeout(() => { if (sel < 0) say(defaultSay()); }, 3000);
+      }
+    });
+    const look = { ...DEFAULT_LOOK[p.gender] || DEFAULT_LOOK.tjej, ...p.look };
+    const key = JSON.stringify([p.id, p.gender, look]);
+    if (key !== meKey) {
+      meKey = key;
+      try { await meStage.setLook(look, p.gender); } catch (e) { console.error(e); }
+    }
+    $('me').classList.add('show');
+  }
+
   function showMenu() {
     document.body.classList.remove('onboarding');
     $('who').classList.remove('show');
     $('playerName').textContent = '👤 ' + cur().name;
     updateCoins();
+    showMe();
     $('player').classList.add('show');
     say(defaultSay());
   }
@@ -719,7 +750,8 @@
       updateCoins();
       if (document.body.classList.contains('onboarding')) renderOpts();
       return Save.get(p.id).coins;
-    }
+    },
+    emote(name) { return meStage ? meStage.emote(name) : 0; }
   };
 
   /* ---------- Start ---------- */

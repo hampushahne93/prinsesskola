@@ -517,17 +517,92 @@ async function createCharacter(look, gender) {
     current = next;
   }
 
+  /* ---------- Poser / rörelser (läggs ovanpå animationen) ---------- */
+  const sideOf = b => { if (!b) return 1; const v = new THREE.Vector3(); b.getWorldPosition(v); return v.x >= 0 ? 1 : -1; };
+  const sL = sideOf(bones.LeftArm), sR = sideOf(bones.RightArm);
+  const pq = new THREE.Quaternion(), wq = new THREE.Quaternion(), rq = new THREE.Quaternion(), tq = new THREE.Quaternion(), ax = new THREE.Vector3();
+  // Vrid ett ben runt en axel i gubbens eget koordinatsystem (oberoende av riggens axlar)
+  function rotW(bone, x, y, z, angle) {
+    if (!bone || !angle) return;
+    ax.set(x, y, z).normalize().applyQuaternion(rq);
+    bone.parent.getWorldQuaternion(pq);
+    wq.setFromAxisAngle(ax, angle);
+    tq.copy(pq).invert().multiply(wq).multiply(pq);
+    bone.quaternion.premultiply(tq);
+  }
+  const raise = (bone, side, a) => rotW(bone, 0, 0, 1, side * a);
+  const EMOTES = { vinka: 2.8, flexa: 2.6, dansa: 3.6, heja: 2.2, titta: 3.2, snurra: 1.5, buga: 2.2 };
+  let emo = null, runUntil = 0;
+  function emote(name) {
+    if (name === 'hoppa') { play('jump', 0.1); return 1.2; }
+    if (name === 'spring') { play('run', 0.3); runUntil = time + 2.6; return 3.0; }
+    if (!EMOTES[name]) return 0;
+    if (current !== actions.idle) play('idle', 0.2);
+    emo = { name, t: 0, d: EMOTES[name] };
+    if (name === 'heja') play('jump', 0.1);
+    return emo.d;
+  }
+  function applyEmote(name, t, w) {
+    const B = bones, f = t * 7;
+    switch (name) {
+      case 'vinka':
+        raise(B.RightArm, sR, 2.65 * w);
+        raise(B.RightForeArm, sR, (0.2 + 0.5 * Math.sin(t * 10)) * w);
+        rotW(B.Head, 0, 0, 1, -sR * 0.15 * w);
+        break;
+      case 'flexa':
+        raise(B.LeftArm, sL, 1.45 * w); raise(B.RightArm, sR, 1.45 * w);
+        raise(B.LeftForeArm, sL, 1.75 * w); raise(B.RightForeArm, sR, 1.75 * w);
+        rotW(B.Spine, 1, 0, 0, -0.1 * w);
+        rotW(B.Head, 0, 1, 0, Math.sin(t * 2.5) * 0.3 * w);
+        break;
+      case 'dansa':
+        rotW(B.Hips, 0, 1, 0, Math.sin(f) * 0.3 * w);
+        rotW(B.Spine, 0, 0, 1, Math.sin(f) * 0.14 * w);
+        raise(B.LeftArm, sL, (1.7 + Math.sin(f) * 0.9) * w);
+        raise(B.RightArm, sR, (1.7 - Math.sin(f) * 0.9) * w);
+        raise(B.LeftForeArm, sL, 0.6 * w); raise(B.RightForeArm, sR, 0.6 * w);
+        rotW(B.Head, 0, 0, 1, Math.sin(f * 2) * 0.12 * w);
+        break;
+      case 'heja':
+        raise(B.LeftArm, sL, 2.75 * w); raise(B.RightArm, sR, 2.75 * w);
+        raise(B.LeftForeArm, sL, Math.sin(t * 14) * 0.3 * w); raise(B.RightForeArm, sR, -Math.sin(t * 14) * 0.3 * w);
+        break;
+      case 'titta':
+        rotW(B.Head, 0, 1, 0, Math.sin(t * 2.2) * 0.5 * w);
+        rotW(B.Spine, 0, 1, 0, Math.sin(t * 2.2) * 0.15 * w);
+        break;
+      case 'buga':
+        rotW(B.Spine, 1, 0, 0, 0.38 * w);
+        rotW(B.Head, 1, 0, 0, 0.12 * w);
+        raise(B.RightArm, sR, -0.3 * w);
+        break;
+      case 'snurra': {
+        const k = Math.min(1, t / 1.3);
+        root.rotation.y = (k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2) * Math.PI * 2;
+        break;
+      }
+    }
+  }
+
   let blinkT = -1, nextBlink = 1.5 + Math.random() * 2, time = 0;
   return {
-    root, bones, mixer, play,
+    root, bones, mixer, play, emote,
     get state() { return current === actions.run ? 'run' : current === actions.jump ? 'jump' : 'idle'; },
     update(dt, lookX = 0, lookY = 0) {
       time += dt;
       mixer.update(dt);
       for (const sp of spinners) sp.rotation.y += dt * sp.userData.spin;
+      if (runUntil && time > runUntil) { runUntil = 0; if (current === actions.run) play('idle', 0.35); }
+      if (emo) {
+        emo.t += dt;
+        root.getWorldQuaternion(rq);
+        if (emo.t >= emo.d) { if (emo.name === 'snurra') root.rotation.y = 0; emo = null; }
+        else applyEmote(emo.name, emo.t, Math.max(0, Math.min(1, emo.t / 0.35, (emo.d - emo.t) / 0.35)));
+      }
       if (aura) { const k = 1 + Math.sin(time * 2.5) * 0.06; aura.material.opacity = 0.75 + Math.sin(time * 2.5) * 0.2; aura.scale.x = aura.userData.sx || (aura.userData.sx = aura.scale.x); aura.scale.x = aura.userData.sx * k; }
       // Huvudet tittar lite mot pekaren
-      if (bones.Head && current === actions.idle) {
+      if (bones.Head && current === actions.idle && !emo) {
         bones.Head.rotateY(lookX * 0.35);
         bones.Head.rotateX(lookY * 0.15);
       }
@@ -572,7 +647,8 @@ function addLights(scene, renderer) {
 }
 
 /* ---------- Scen med podium och kamera ---------- */
-export function createStage(canvas) {
+export function createStage(canvas, opts = {}) {
+  const mini = !!opts.mini;
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.setClearColor(0x000000, 0);
@@ -602,6 +678,13 @@ export function createStage(canvas) {
   controls.minPolarAngle = Math.PI * 0.25;
   controls.maxPolarAngle = Math.PI * 0.6;
   controls.rotateSpeed = 0.7;
+  if (mini) {
+    controls.enabled = false;
+    camera.fov = 28;
+    camera.position.set(0, 1.15, 5.8);
+    controls.target.set(0, 0.86, 0);
+    camera.updateProjectionMatrix();
+  }
 
   // Podium
   const ped = new THREE.Mesh(new THREE.CylinderGeometry(0.72, 0.8, 0.14, 64),
@@ -680,7 +763,7 @@ export function createStage(canvas) {
     ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
     ray.setFromCamera(ndc, camera);
     const box = new THREE.Box3().setFromObject(ch.root);
-    if (ray.ray.intersectsBox(box)) ch.play('jump', 0.1);
+    if (ray.ray.intersectsBox(box)) { if (mini) nextShow(true); else ch.play('jump', 0.1); }
   });
 
   function resize() {
@@ -694,6 +777,19 @@ export function createStage(canvas) {
   const ro = new ResizeObserver(resize);
   ro.observe(canvas.parentElement);
   resize();
+
+  // Visningsläge: gubben gör olika rörelser av sig själv
+  const SHOW = ['vinka', 'dansa', 'hoppa', 'flexa', 'titta', 'snurra', 'spring', 'heja', 'buga'];
+  let showT = 2.5, lastShow = '';
+  function nextShow(now = false) {
+    if (!ch) return;
+    let n;
+    do { n = SHOW[Math.floor(Math.random() * SHOW.length)]; } while (n === lastShow);
+    lastShow = n;
+    const d = ch.emote(n);
+    showT = d + 2 + Math.random() * 2.5;
+    if (opts.onEmote) opts.onEmote(n);
+  }
 
   const clock = new THREE.Clock();
   let raf = 0, alive = true;
@@ -724,6 +820,7 @@ export function createStage(canvas) {
     lx += (lookX - lx) * 0.06;
     ly += (lookY - ly) * 0.06;
     if (ch) ch.update(dt, lx, ly);
+    if (mini && ch) { showT -= dt; if (showT <= 0) nextShow(); }
     renderer.render(scene, camera);
   }
   animate();
@@ -748,6 +845,7 @@ export function createStage(canvas) {
     bounce() { ch && ch.play('jump', 0.1); },
     wave() { ch && ch.play('jump', 0.1); },
     play(name) { ch && ch.play(name); },
+    emote(name) { const d = ch ? ch.emote(name) : 0; if (mini) showT = d + 3; return d; },
     get state() { return ch ? ch.state : 'idle'; },
     _debug: { camera, controls, get ch() { return ch; } },
     dispose() {
