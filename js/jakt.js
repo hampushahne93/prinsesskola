@@ -50,6 +50,8 @@ async function spawnChests(spots) {
   const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
   const inside = shuffle(spots.filter(s => s.where !== 'ute')), outside = shuffle(spots.filter(s => s.where === 'ute'));
   const nIn = Math.random() < 0.5 ? 4 : 5, picked = [], used = new Set();
+  // Nergrävda kistor (2 st) väljs bland utomhusplatserna som inte används, syns inte på kartan
+  const buried = outside.slice(CHESTS, CHESTS + 2);
   for (const s of inside) { if (picked.length >= nIn) break; if (!used.has(s.bid)) { used.add(s.bid); picked.push(s); } }   // max en kista per hus/lada
   for (const s of [...picked, ...outside.slice(0, CHESTS - picked.length)]) {
     const o = SkeletonUtils.clone(src);
@@ -66,7 +68,27 @@ async function spawnChests(spots) {
     world.colliders.push({ x: s.x, z: s.z, r: 0.6, top: s.y + 0.95 });
     chests.push({ ...s, obj: o, lids, star, open: false, t: 0 });
   }
+  // En av kistorna ger 1 minut extra speltid i stället för mynt
+  chests[Math.floor(Math.random() * chests.length)].bonusTime = true;
+  // Nergrävda kistor: bara en liten jordhög, ingen stjärna och inte på kartan
+  for (const s of buried) {
+    const o = SkeletonUtils.clone(src);
+    o.scale.setScalar(0.0055);
+    o.position.set(s.x, s.y - 1.1, s.z);
+    o.rotation.y = s.rot;
+    o.visible = false;
+    const lids = [];
+    o.traverse(b => { if (b.isBone && b.name === 'Chest_Top') lids.push({ b, r0: b.rotation.x }); });
+    scene.add(o);
+    const mound = new THREE.Mesh(moundGeo, moundMat);
+    mound.position.set(s.x, s.y - 0.05, s.z); mound.rotation.y = s.rot;
+    scene.add(mound);
+    digs.push({ ...s, obj: o, lids, mound, dug: false, rise: 0, open: false, t: 0, buried: true });
+  }
 }
+const digs = [];
+const moundGeo = new THREE.SphereGeometry(0.75, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2); moundGeo.scale(1, 0.22, 0.8);
+const moundMat = new THREE.MeshLambertMaterial({ color: '#7a5a3a', flatShading: true });
 const starMat = (() => {
   const c = document.createElement('canvas'); c.width = c.height = 64;
   const g = c.getContext('2d'), gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
@@ -82,13 +104,23 @@ let coins = player ? player.coins : 0;
 function openChest(c) {
   if (c.open) return;
   c.open = true;
-  const n = 10 + Math.floor(Math.random() * 21);     // 10–30 guldmynt
+  coinBurst(c);
+  if (c.bonusTime) {                                  // tidskistan
+    if (timeLeft !== null && !timeUp) timeLeft += 60;
+    $('timer').classList.remove('bump'); void $('timer').offsetWidth; $('timer').classList.add('bump');
+    toast('⏱️ +1 minut extra speltid!');
+    return;
+  }
+  // 5–10 guldmynt per kista, nergrävda kistor ger dubbelt
+  const n = (5 + Math.floor(Math.random() * 6)) * (c.buried ? 2 : 1);
+  giveCoins(n);
+  const left = chests.filter(x => !x.open).length;
+  toast(`🎉 +${n} guldmynt!` + (c.buried ? ' Du grävde upp en skatt!' : left ? ` ${left} kistor kvar` : ' Du hittade alla kistor!'));
+}
+function giveCoins(n) {
   if (player) coins = Save.addCoins(player.id, n); else coins += n;
   $('pcoins').textContent = '🪙 ' + coins;
   $('pcoins').classList.remove('bump'); void $('pcoins').offsetWidth; $('pcoins').classList.add('bump');
-  const left = chests.filter(x => !x.open).length;
-  toast(`🎉 +${n} guldmynt!` + (left ? ` ${left} kistor kvar` : ' Du hittade alla kistor!'));
-  coinBurst(c);
 }
 // Mynt som hoppar ur kistan
 const burst = [];
@@ -103,6 +135,12 @@ function coinBurst(c) {
   }
 }
 function updateChests(dt, t) {
+  for (const c of digs) {
+    if (!c.dug) continue;
+    if (c.rise < 1) { c.rise = Math.min(1, c.rise + dt * 1.2); c.obj.position.y = c.y - 1.1 + 1.1 * (1 - Math.pow(1 - c.rise, 3)); c.mound.scale.setScalar(1 - c.rise * 0.6); }
+    else if (!c.open) openChest(c);
+    if (c.open && c.t < 1) { c.t = Math.min(1, c.t + dt * 1.8); const e = 1 - Math.pow(1 - c.t, 3); for (const l of c.lids) l.b.rotation.x = l.r0 - 1.2 * e; }
+  }
   for (const c of chests) {
     if (c.open && c.t < 1) {
       c.t = Math.min(1, c.t + dt * 1.8);
@@ -332,10 +370,15 @@ function barnAt(x, z) {
 function groundAt(x, z) { const b = barnAt(x, z); return b ? b.floorY : Math.max(heightAt(x, z), rockHeightAt(x, z), farms ? farms.platformAt(x, z) : -Infinity); }
 let nearBarn = null;
 let nearChest = null;
-function useDoor() { if (nearChest) openChest(nearChest); else if (nearBarn) nearBarn.toggle(); }
+function useDoor() { if (nearChest) openChest(nearChest); else if (holdAct) return; else if (nearBarn) nearBarn.toggle(); }
+let holdAct = null, holdT = 0;
+const falling = [];
 addEventListener('keydown', e => { if (e.code === 'KeyE' || e.code === 'Enter') useDoor(); });
-$('prompt').addEventListener('click', useDoor);
-$('prompt').addEventListener('touchstart', e => { e.preventDefault(); useDoor(); }, { passive: false });
+// Knappen: tryck (dörr/kista) eller håll inne (hugga/gräva)
+let promptHeld = false;
+$('prompt').addEventListener('pointerdown', e => { e.preventDefault(); promptHeld = true; useDoor(); });
+addEventListener('pointerup', () => { promptHeld = false; });
+addEventListener('pointercancel', () => { promptHeld = false; });
 
 function jump() {
   if (!ch || !P.grounded) return;
@@ -498,15 +541,67 @@ function update(dt) {
   }
   nearChest = null;
   { let best = 2.3; for (const c of chests) { if (c.open) continue; const dd = Math.hypot(P.x - c.x, P.z - c.z); if (dd < best && Math.abs(P.y - c.y) < 1.6) { best = dd; nearChest = c; } } }
-  updateChests(dt, performance.now() / 1000);
+  const now = performance.now() / 1000;
+  updateChests(dt, now);
+
+  // Hugga träd med yxan / gräva med spaden (håll E i några sekunder)
+  let act = null;
+  if (!nearChest && gearOn.has('yxa')) {
+    let best = 2.1;
+    for (const tr of world.trees.list) { if (!tr.alive) continue; const dd = Math.hypot(P.x - tr.x, P.z - tr.z); if (dd < best) { best = dd; act = { kind: 'tree', tr, time: 3 }; } }
+  }
+  let nearestDig = Infinity;
+  if (!nearChest && !act && gearOn.has('spade')) {
+    for (const d of digs) { if (d.dug) continue; const dd = Math.hypot(P.x - d.x, P.z - d.z); nearestDig = Math.min(nearestDig, dd); if (dd < 1.9 && !act) act = { kind: 'dig', d, time: 2 }; }
+  }
+  const actTarget = act && (act.tr || act.d);
+  if (!holdAct || !act || (holdAct.tr || holdAct.d) !== actTarget) holdT = 0;
+  holdAct = act;
+  const holding = keys.KeyE || keys.Enter || keys.NumpadEnter || promptHeld;
+  if (act && holding && !timeUp) {
+    holdT += dt;
+    if (act.kind === 'tree') world.trees.pose(act.tr, 0, 1, 0, Math.sin(now * 40) * 0.025);     // trädet skakar
+    if (holdT >= act.time) {
+      if (act.kind === 'tree') {
+        act.tr.alive = false; act.tr.collider.active = false;
+        const ax = P.z - act.tr.z, az = -(P.x - act.tr.x);                                           // faller bort från gubben
+        falling.push({ tr: act.tr, ax, az, a: 0, t: 0 });
+        giveCoins(10);
+        toast('🪓 Timmer! +10 guldmynt');
+      } else {
+        act.d.dug = true; act.d.obj.visible = true;
+      }
+      holdT = 0; holdAct = null;
+    }
+  } else if (act && act.kind === 'tree' && holdT === 0) world.trees.pose(act.tr, 0, 1, 0);
+  for (let i = falling.length - 1; i >= 0; i--) {
+    const f = falling[i];
+    f.t += dt;
+    f.a = Math.min(Math.PI / 2 - 0.08, f.a + dt * (0.6 + f.t * 3.2));
+    world.trees.pose(f.tr, -f.a, f.ax, f.az);
+    if (f.t > 2.6) { world.trees.hide(f.tr); falling.splice(i, 1); }
+  }
+  // Varmt/kallt när man har spaden i handen
+  const hint = $('hint');
+  if (gearOn.has('spade') && digs.some(d => !d.dug)) {
+    hint.textContent = nearestDig < 1.9 ? '🔥🔥 Gräv här!' : nearestDig < 8 ? '🔥 Varmt!' : nearestDig < 25 ? '🌤️ Ljummet' : nearestDig < 60 ? '❄️ Kallt' : '🧊 Iskallt';
+    hint.classList.add('show');
+  } else hint.classList.remove('show');
+
   const pr = $('prompt');
+  pr.classList.toggle('hold', !!holdAct && !nearChest);
   if (nearChest) {
     pr.querySelector('span').textContent = 'öppna kistan';
-    pr.querySelector('b').textContent = '💰';
+    pr.querySelector('b').textContent = '💰'; pr.querySelector('i').textContent = 'Tryck';
+    pr.classList.add('show');
+  } else if (holdAct) {
+    pr.querySelector('span').textContent = holdAct.kind === 'tree' ? 'hugga ner trädet' : 'gräva';
+    pr.querySelector('b').textContent = holdAct.kind === 'tree' ? '🪓' : '🪏'; pr.querySelector('i').textContent = 'Håll';
+    pr.querySelector('.bar u').style.width = Math.min(100, holdT / holdAct.time * 100) + '%';
     pr.classList.add('show');
   } else if (nearBarn) {
     pr.querySelector('span').textContent = nearBarn.open ? 'stänga dörren' : 'öppna dörren';
-    pr.querySelector('b').textContent = '🚪';
+    pr.querySelector('b').textContent = '🚪'; pr.querySelector('i').textContent = 'Tryck';
     pr.classList.add('show');
   } else pr.classList.remove('show');
 
@@ -514,7 +609,14 @@ function update(dt) {
   drawMinimap(P.x, P.z, P.heading);
 }
 
-camera.position.set(0, heightAt(0, 0) + 4, 7);
+// Startplats: en av 30, gubben tittar in mot mitten av kartan
+{
+  const sp = world.spawns[Math.floor(Math.random() * world.spawns.length)];
+  P.x = sp.x; P.z = sp.z; P.y = heightAt(sp.x, sp.z);
+  if (Math.hypot(sp.x, sp.z) > 1) yaw = Math.atan2(sp.x, sp.z);
+  P.heading = yaw + Math.PI;
+}
+camera.position.set(P.x - Math.sin(yaw) * -6, P.y + 4, P.z - Math.cos(yaw) * -6);
 function loop() {
   requestAnimationFrame(loop);
   const dt = Math.min(clock.getDelta(), 0.05);
@@ -526,4 +628,4 @@ function loop() {
 loop();
 
 // För test: Jakt.teleport(x, z)
-window.Jakt = { P, chests, openChest, set timeLeft(v) { timeLeft = v; }, get timeLeft() { return timeLeft; }, step(n = 1, dt = 1 / 60) { for (let i = 0; i < n; i++) { update(dt); if (farms) farms.update(0, dt); } }, get farms() { return farms; }, get cam() { return camera.position.toArray(); }, teleport(x, z) { P.x = x; P.z = z; P.y = groundAt(x, z); P.vy = 0; P.grounded = true; }, get yaw() { return yaw; }, set yaw(v) { yaw = v; }, set pitch(v) { pitch = v; }, set dist(v) { dist = v; }, keys };
+window.Jakt = { P, chests, digs, openChest, world, set timeLeft(v) { timeLeft = v; }, get timeLeft() { return timeLeft; }, step(n = 1, dt = 1 / 60) { for (let i = 0; i < n; i++) { update(dt); if (farms) farms.update(0, dt); } }, get farms() { return farms; }, get cam() { return camera.position.toArray(); }, teleport(x, z) { P.x = x; P.z = z; P.y = groundAt(x, z); P.vy = 0; P.grounded = true; }, get yaw() { return yaw; }, set yaw(v) { yaw = v; }, set pitch(v) { pitch = v; }, set dist(v) { dist = v; }, keys };

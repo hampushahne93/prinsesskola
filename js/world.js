@@ -432,7 +432,8 @@ export function buildWorld(scene, { lowSpec = false } = {}) {
     scene.add(rocks);
   }
 
-  /* ---------- Träd ---------- */
+  /* ---------- Träd (kan huggas ner med yxan) ---------- */
+  const trees = { list: [], trunks: null, leaves: null };
   {
     const n = 150;
     const trunkG = new THREE.CylinderGeometry(0.22, 0.32, 1, 7); trunkG.translate(0, 0.5, 0);
@@ -445,17 +446,42 @@ export function buildWorld(scene, { lowSpec = false } = {}) {
       // fler träd i klungor
       const s = spot(WATER + 1, 0.45); if (!s) continue;
       const [x, h, z] = s, th = 2.2 + R() * 2.5, k = 1.4 + R() * 1.4;
+      const tree = { x, z, y: h - 0.2, ti: t, li: l, base: [], alive: true };
       trunks.setMatrixAt(t++, M.compose(P.set(x, h - 0.2, z), Q.identity(), S.set(1, th, 1)));
+      tree.base.push(M.clone());
       const c = lc[Math.floor(R() * lc.length)];
       leaves.setMatrixAt(l, M.compose(P.set(x, h + th + k * 0.5, z), Q.setFromAxisAngle(UP, R() * 6), S.set(k, k * 0.9, k))); leaves.setColorAt(l++, c);
+      tree.base.push(M.clone());
       leaves.setMatrixAt(l, M.compose(P.set(x + (R() - 0.5), h + th + k * 1.3, z + (R() - 0.5)), Q, S.set(k * 0.65, k * 0.65, k * 0.65))); leaves.setColorAt(l++, c.clone().offsetHSL(0, 0, 0.06));
-      colliders.push({ x, z, r: 0.45 });
+      tree.base.push(M.clone());
+      tree.collider = { x, z, r: 0.45 };
+      colliders.push(tree.collider);
+      trees.list.push(tree);
     }
     trunks.count = t; leaves.count = l;
     trunks.castShadow = leaves.castShadow = true;
     trunks.receiveShadow = leaves.receiveShadow = true;
     scene.add(trunks, leaves);
+    trunks.instanceMatrix.setUsage(THREE.DynamicDrawUsage); leaves.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    trees.trunks = trunks; trees.leaves = leaves;
   }
+  // Rita ett träd lutat (fall = 0..1) runt stammens fot, eller dölj det
+  const TM = new THREE.Matrix4(), TR = new THREE.Matrix4(), TT = new THREE.Matrix4(), TI = new THREE.Matrix4(), ZERO = new THREE.Matrix4().makeScale(0, 0, 0);
+  trees.pose = (tree, angle, axisX, axisZ, wobble = 0) => {
+    const ax = new THREE.Vector3(axisX, 0, axisZ).normalize();
+    TR.makeRotationAxis(ax, angle);
+    if (wobble) TR.multiply(new THREE.Matrix4().makeRotationZ(wobble));
+    TT.makeTranslation(tree.x, tree.y, tree.z); TI.makeTranslation(-tree.x, -tree.y, -tree.z);
+    const R2 = TT.clone().multiply(TR).multiply(TI);
+    trees.trunks.setMatrixAt(tree.ti, TM.copy(R2).multiply(tree.base[0]));
+    trees.leaves.setMatrixAt(tree.li, TM.copy(R2).multiply(tree.base[1]));
+    trees.leaves.setMatrixAt(tree.li + 1, TM.copy(R2).multiply(tree.base[2]));
+    trees.trunks.instanceMatrix.needsUpdate = trees.leaves.instanceMatrix.needsUpdate = true;
+  };
+  trees.hide = tree => {
+    trees.trunks.setMatrixAt(tree.ti, ZERO); trees.leaves.setMatrixAt(tree.li, ZERO); trees.leaves.setMatrixAt(tree.li + 1, ZERO);
+    trees.trunks.instanceMatrix.needsUpdate = trees.leaves.instanceMatrix.needsUpdate = true;
+  };
 
   /* ---------- Lysande kristaller (lite rymdkänsla) ---------- */
   const crystals = [];
@@ -482,8 +508,21 @@ export function buildWorld(scene, { lowSpec = false } = {}) {
     }
   }
 
+  /* ---------- 30 startplatser för gubben (alltid samma) ---------- */
+  const spawns = [{ x: 0, z: 0 }];
+  {
+    const R2 = rng(777);
+    for (let k = 0; k < 6000 && spawns.length < 30; k++) {
+      const x = (R2() * 2 - 1) * (PLAY - 12), z = (R2() * 2 - 1) * (PLAY - 12), h = heightAt(x, z);
+      if (h < WATER + 0.8 || h > 14 || slopeAt(x, z) > 0.3 || inFarm(x, z, 6)) continue;
+      if (rockHeightAt(x, z) > -Infinity || colliders.some(c => Math.hypot(x - c.x, z - c.z) < (c.r || 1) + 2)) continue;
+      if (spawns.some(s => Math.hypot(s.x - x, s.z - z) < 24)) continue;
+      spawns.push({ x, z });
+    }
+  }
+
   return {
-    sun, terrain, colliders,
+    sun, terrain, colliders, trees, spawns, slopeAt,
     update(t) {
       uniforms.uTime.value = t;
       crystals.forEach((c, i) => { c.rotation.y = t * 0.2 + i; });

@@ -58,6 +58,13 @@
     background:rgba(20,14,70,.85);border:3px solid #ffd84a;border-radius:999px;padding:10px 20px;font-size:19px;font-weight:700;
     box-shadow:0 0 22px rgba(255,216,74,.5);display:flex;gap:10px;align-items:center;cursor:pointer}
   #prompt.show{opacity:1;transform:translate(-50%,0);pointer-events:auto}
+  #prompt i{font-style:normal}
+  #prompt .bar{display:none;position:absolute;left:22px;right:22px;bottom:-9px;height:8px;border-radius:9px;background:rgba(20,14,70,.9);border:2px solid #ffd84a;overflow:hidden}
+  #prompt.hold .bar{display:block}
+  #prompt .bar u{display:block;height:100%;width:0;background:linear-gradient(90deg,#ffd84a,#ff9f1c)}
+  #hint{position:fixed;z-index:5;left:50%;top:150px;transform:translateX(-50%);display:none;font-size:20px}
+  #hint.show{display:block}
+  .timer.bump{animation:bump .5s cubic-bezier(.2,1.6,.4,1)}
   #prompt kbd{background:#ffd84a;color:#4a3200;border-radius:8px;padding:2px 9px;font-family:inherit;box-shadow:0 3px 0 #b88a12}
   .touch #prompt kbd{display:none}
   .touch #prompt{bottom:150px;font-size:22px;padding:14px 26px}
@@ -141,7 +148,8 @@
   <div class="grp touchhelp"><div>⤴️</div><small>Knappen: hoppa</small></div>
 </div>
 
-<div id="prompt"><kbd>E</kbd><b>🚪</b> Tryck för att <span>öppna dörren</span></div>
+<div id="prompt"><kbd>E</kbd><b>🚪</b> <i>Tryck</i> för att <span>öppna dörren</span><em class="bar"><u></u></em></div>
+<div class="pill" id="hint"></div>
 <div id="hotbar"></div>
 <div id="toast"></div>
 <div id="joy"><div id="knob"></div></div>

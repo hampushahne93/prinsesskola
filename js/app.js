@@ -284,6 +284,20 @@
     const lines = ['Pip pip! Jag heter Bip!', 'Tryck på ett kort så kör vi!', `Du är jätteduktig${n ? ', ' + n : ''}!`, 'Rymden är full av bokstäver!'];
     say(lines[Math.floor(Math.random() * lines.length)]); happy(); fanfare();
   });
+  // Admin: dubbelklicka på Bip → skriv "admingold" → välj hur mycket guld
+  robot.addEventListener('dblclick', () => {
+    const p = cur();
+    if (!p) return;
+    setTimeout(() => {
+      const code = prompt('🔧 Admin-kod:');
+      if (!code || code.trim().toLowerCase() !== 'admingold') { if (code) toast('❌ Fel kod'); return; }
+      const amount = parseInt(prompt(`Hur många guldmynt ska ${p.name} få?`, '1000'), 10);
+      if (!amount || amount < 0) return;
+      Save.addCoins(p.id, amount);
+      updateCoins();
+      say(`Pling! ${p.name} fick ${amount} guldmynt! 🪙`); happy(); fanfare();
+    }, 50);
+  });
 
   const cards = [...document.querySelectorAll('.card')];
   const overlay = $('overlay'), panel = $('panel');
