@@ -3,7 +3,7 @@
    ========================================================= */
 import * as THREE from 'three';
 import { createCharacter } from './avatar.js';
-import { buildWorld, heightAt, rockHeightAt, HALF, PLAY, WATER, FARMS, loadFarms } from './world.js';
+import { buildWorld, heightAt, rockHeightAt, HALF, PLAY, WATER, FARMS, loadFarms , TOWN } from './world.js';
 
 const $ = id => document.getElementById(id);
 const touch = matchMedia('(pointer: coarse)').matches;
@@ -45,6 +45,11 @@ const mapImg = world.minimap(180);
 function drawMinimap(x, z, heading) {
   const s = mini.width;
   mctx.drawImage(mapImg, 0, 0, s, s);
+  mctx.fillStyle = '#f4f1ea'; mctx.strokeStyle = '#6a4a8a'; mctx.lineWidth = 1;
+  for (const h of TOWN.houses) {   // husen i staden
+    const hx = ((h.x + HALF) / (HALF * 2)) * s, hz = ((h.z + HALF) / (HALF * 2)) * s, r = h.type === 4 ? 4 : 2.5;
+    mctx.fillRect(hx - r, hz - 2.5, r * 2, 5); mctx.strokeRect(hx - r, hz - 2.5, r * 2, 5);
+  }
   for (const f of FARMS) {   // gårdar och stora lador
     const fx = ((f.x + HALF) / (HALF * 2)) * s, fz = ((f.z + HALF) / (HALF * 2)) * s, r = f.kind === 'big' ? 6 : 4;
     mctx.fillStyle = f.kind === 'big' ? '#8a1f2a' : '#c94a3c'; mctx.strokeStyle = '#ffffff'; mctx.lineWidth = 1.5;
@@ -229,7 +234,7 @@ function collide(nx, nz, ox0, oz0) {
 function barnAt(x, z) {
   return farms ? farms.barns.find(b => x > b.inner.minX - 0.15 && x < b.inner.maxX + 0.15 && z > b.inner.minZ - 0.15 && z < b.inner.maxZ + 0.15) : null;
 }
-function groundAt(x, z) { const b = barnAt(x, z); return b ? b.floorY : Math.max(heightAt(x, z), rockHeightAt(x, z)); }
+function groundAt(x, z) { const b = barnAt(x, z); return b ? b.floorY : Math.max(heightAt(x, z), rockHeightAt(x, z), farms ? farms.platformAt(x, z) : -Infinity); }
 let nearBarn = null;
 function useDoor() { if (nearBarn) nearBarn.toggle(); }
 addEventListener('keydown', e => { if (e.code === 'KeyE' || e.code === 'Enter') useDoor(); });

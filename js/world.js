@@ -45,6 +45,53 @@ function baseHeight(x, z) {
   return h;
 }
 
+/* ---------- Staden i norr (minus z = norr på kartan) ---------- */
+export const TOWN = { x: 0, z: -71, hw: 40, hd: 40, h: 0, houses: [], streetsZ: [-88, -52], streetX: 0 };
+const townDist = (x, z) => Math.hypot(Math.max(0, Math.abs(x - TOWN.x) - TOWN.hw), Math.max(0, Math.abs(z - TOWN.z) - TOWN.hd));
+{
+  let s = 0, n = 0;
+  for (let x = -TOWN.hw; x <= TOWN.hw; x += 4) for (let z = -TOWN.hd; z <= TOWN.hd; z += 4) { s += baseHeight(TOWN.x + x, TOWN.z + z); n++; }
+  TOWN.h = Math.max(WATER + 1.6, Math.min(6, s / n));
+}
+// Husmodellerna (modellenheter, skalas med HOUSE_S). Dörren sitter på +z-sidan.
+export const HOUSE_S = 7.5;
+export const HOUSE_KITS = {
+  1: { walls: [-0.56, 0.56, -0.58, 0.56], door: [-0.072, 0.072], floor: 0.089, ext: [-0.61, 0.61, -0.66, 1.06],
+       porch: { x: [-0.538, 0.538], z: [0.56, 1.058], y: 0.044 }, posts: [[-0.5, 1.0], [0.5, 1.0]] },
+  2: { walls: [-0.54, 0.54, -0.61, 0.614], door: [-0.104, 0.074], floor: 0.059, ext: [-0.63, 0.62, -0.73, 0.71] },
+  3: { walls: [-0.54, 0.54, -0.61, 0.614], door: [-0.104, 0.074], floor: 0.059, ext: [-0.63, 0.62, -0.73, 0.71] },
+  4: { walls: [-0.241, 0.93, -0.61, 0.614], door: [0.296, 0.474], floor: 0.054, ext: [-1.14, 1.02, -0.72, 0.71], garage: [-1.04, -0.241] }
+};
+{
+  // Fyra husrader längs två gator, en tvärgata i mitten. Dörrarna vetter mot gatan.
+  const [A, B] = TOWN.streetsZ, GAP = 2.2;
+  const rows = [
+    { front: A - 4.5, yaw: 0, halves: [[4, 1], [2, 3, 1]] },
+    { front: A + 4.5, yaw: Math.PI, halves: [[3, 2, 1], [4, 2]] },
+    { front: B - 4.5, yaw: 0, halves: [[1, 3, 2], [4, 3]] },
+    { front: B + 4.5, yaw: Math.PI, halves: [[4, 2], [1]] }
+  ];
+  let ci = 0;
+  for (const row of rows) {
+    row.halves.forEach((list, hi) => {
+      const ws = list.map(t => (HOUSE_KITS[t].ext[1] - HOUSE_KITS[t].ext[0]) * HOUSE_S);
+      const total = ws.reduce((a, b) => a + b, 0) + GAP * (list.length - 1);
+      const x0 = hi === 0 ? -4.5 - 30 : 4.5, span = 30;
+      let x = x0 + (span - total) / 2;
+      // I rader som vetter mot -z (vänd 180°) blir modellens +x åt -x: räkna ut mitten rätt
+      list.forEach((t, k) => {
+        const K = HOUSE_KITS[t], w = ws[k];
+        const midLocal = (K.ext[0] + K.ext[1]) / 2 * HOUSE_S;
+        const cx = x + w / 2 - (row.yaw ? -midLocal : midLocal);
+        const frontLocal = K.ext[3] * HOUSE_S;
+        const cz = row.yaw ? row.front + frontLocal : row.front - frontLocal;
+        TOWN.houses.push({ type: t, x: TOWN.x + cx, z: cz, yaw: row.yaw, color: ci++ });
+        x += w + GAP;
+      });
+    });
+  }
+}
+
 /* ---------- Gårdar: en i varje hörn, på plana platser ---------- */
 export const FARMS = [];
 {
@@ -55,6 +102,7 @@ export const FARMS = [];
     if (best) break;
     for (let a = lo; a <= hi; a += 5) for (let b = lo; b <= hi; b += 5) {
       const x = sx * a, z = sz * b, hs = [];
+      if (townDist(x, z) < PAD + 18) continue;
       for (let k = 0; k < 16; k++) { const t = k / 16 * Math.PI * 2; hs.push(baseHeight(x + Math.cos(t) * PAD, z + Math.sin(t) * PAD)); hs.push(baseHeight(x + Math.cos(t) * PAD * 0.5, z + Math.sin(t) * PAD * 0.5)); }
       hs.push(baseHeight(x, z));
       const mean = hs.reduce((p, c) => p + c, 0) / hs.length;
@@ -74,7 +122,7 @@ export const FARMS = [];
   for (let n = 0; n < 2; n++) {
     let best = null;
     for (let x = -100; x <= 100; x += 5) for (let z = -100; z <= 100; z += 5) {
-      if (Math.hypot(x, z) < 45 || FARMS.some(f => Math.hypot(x - f.x, z - f.z) < f.pad + PADB + 22)) continue;
+      if (Math.hypot(x, z) < 45 || townDist(x, z) < PADB + 18 || FARMS.some(f => Math.hypot(x - f.x, z - f.z) < f.pad + PADB + 22)) continue;
       const hs = [];
       for (let k = 0; k < 16; k++) { const t = k / 16 * Math.PI * 2; hs.push(baseHeight(x + Math.cos(t) * PADB, z + Math.sin(t) * PADB)); hs.push(baseHeight(x + Math.cos(t) * PADB * 0.5, z + Math.sin(t) * PADB * 0.5)); }
       const mean = hs.reduce((p, c) => p + c, 0) / hs.length;
@@ -95,9 +143,30 @@ function rawHeight(x, z) {
     const d = Math.hypot(x - f.x, z - f.z);
     if (d < f.pad + 14) h += (f.h - h) * (1 - sstep(f.pad, f.pad + 14, d));
   }
+  const td = townDist(x, z);
+  if (td < 16) h += (TOWN.h - h) * (1 - sstep(0, 16, td));
   return h;
 }
-const inFarm = (x, z, extra = 0) => FARMS.some(f => Math.hypot(x - f.x, z - f.z) < f.pad + extra);
+const inFarm = (x, z, extra = 0) => (extra >= 0 ? townDist(x, z) < 2 + extra * 0.5 : inTownBuilt(x, z)) || FARMS.some(f => Math.hypot(x - f.x, z - f.z) < f.pad + extra);
+// Gator och husgrunder i staden (inget gräs där)
+function inTownBuilt(x, z) {
+  if (townDist(x, z) > 0) return false;
+  if (onStreet(x, z) < 4.2) return true;
+  for (const H of TOWN.houses) {
+    const K = HOUSE_KITS[H.type], f = H.yaw ? -1 : 1;
+    const lx = (x - H.x) * f, lz = (z - H.z) * f;
+    if (lx > K.ext[0] * HOUSE_S - 0.3 && lx < K.ext[1] * HOUSE_S + 0.3 && lz > K.ext[2] * HOUSE_S - 0.3 && lz < K.ext[3] * HOUSE_S + 0.3) return true;
+  }
+  return false;
+}
+// Gator i staden (för markfärg)
+function onStreet(x, z) {
+  if (townDist(x, z) > 0) return 0;
+  let d = Infinity;
+  for (const sz of TOWN.streetsZ) if (Math.abs(x - TOWN.x) < 37) d = Math.min(d, Math.abs(z - sz));
+  if (z > TOWN.streetsZ[0] && z < TOWN.z + TOWN.hd + 6) d = Math.min(d, Math.abs(x - TOWN.streetX));
+  return d;
+}
 
 /* Höjdkarta i rutnät + bilinjär avläsning (exakt som meshen) */
 const N = SEG + 1;
@@ -140,6 +209,12 @@ function groundColor(x, z, h, slope, out) {
   if (slope > 0.6) out.lerp(C('#8a7f9e'), sstep(0.6, 1.2, slope));            // sten i branter
   if (h > 16) out.lerp(C('#9a90b5'), sstep(16, 28, h));                       // berg
   if (h > 30) out.lerp(C('#f2f0ff'), sstep(30, 38, h));                       // snötoppar
+  if (townDist(x, z) < 6) {                                                     // staden: kortklippt gräs och gator
+    const k = 1 - sstep(0, 6, townDist(x, z));
+    out.lerp(C('#6cc24f'), 0.5 * k);
+    const sd = onStreet(x, z);
+    if (sd < 4.2) out.lerp(C(n > 0.5 ? '#9a96a8' : '#8b879a'), (1 - sstep(3.0, 4.2, sd)) * k);
+  }
   for (const f of FARMS) {                                                      // grusplan vid ladan
     const d = Math.hypot(x - f.x, z - f.z);
     const r0 = f.kind === 'big' ? 12 : 8;
@@ -437,6 +512,22 @@ const PROP_COLORS = {
   DarkRed: '#a3352b', LightRed: '#c94a3c', RoofBlack: '#3b3a48', White: '#f4f1ea',
   Brown: '#8a5a3a', Grey: '#a3a3b3', DarkGrey: '#6b6b78', Black: '#2a2a33'
 };
+// Hustextur: 2x4 färgfält (vägg, tak, trä, grått, glas, dörr, sockel, vitt). Vägg och tak får olika färger.
+const WALLS = ['#ece7d9', '#bfe3ff', '#ffd1e1', '#c9f2d0', '#fff1a8', '#e0d4ff', '#ffd9b0', '#f4f4f4'];
+const ROOFS = ['#494747', '#de5531', '#3d6fb5', '#3f8a4f', '#7a4a8f', '#b8743c', '#2f5d6e'];
+const houseMats = {};
+function houseMaterial(i) {
+  const wall = WALLS[i % WALLS.length], roof = ROOFS[(i * 3 + 1) % ROOFS.length], key = wall + roof;
+  if (houseMats[key]) return houseMats[key];
+  const c = document.createElement('canvas'); c.width = c.height = 32;
+  const g = c.getContext('2d');
+  [[wall, roof], ['#a1542f', '#a9a9a9'], ['#ccf7f8', '#78452b'], ['#3f3f3f', '#efefef']].forEach((r, y) =>
+    r.forEach((col, x) => { g.fillStyle = col; g.fillRect(x * 16, y * 8, 16, 8); }));
+  const t = new THREE.CanvasTexture(c);
+  t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter; t.generateMipmaps = false;
+  t.colorSpace = THREE.SRGBColorSpace;
+  return (houseMats[key] = new THREE.MeshLambertMaterial({ map: t, side: THREE.DoubleSide, flatShading: true }));
+}
 function loadOBJ(name) {
   return new OBJLoader().loadAsync(new URL(`../assets/props/${name}.obj`, import.meta.url).href).then(obj => {
     const mats = {};
@@ -452,8 +543,9 @@ function loadOBJ(name) {
 }
 
 export async function loadFarms(scene, colliders) {
-  const [barn, bigBarn, windmill, fence1, fence2, silo, siloHouse, coop] = await Promise.all(
-    ['Barn', 'BigBarn', 'Windmill', 'Fence', 'Fence2', 'Silo', 'Silo_House', 'ChickenCoop'].map(loadOBJ));
+  const [barn, bigBarn, windmill, fence1, fence2, silo, siloHouse, coop, ...houseSrc] = await Promise.all(
+    ['Barn', 'BigBarn', 'Windmill', 'Fence', 'Fence2', 'Silo', 'Silo_House', 'ChickenCoop', 'House1', 'House2', 'House3', 'House4'].map(loadOBJ));
+  const platforms = [];   // ytor man kan stå på (verandor)
   // Silos och hönshus (silon står i modellens origo, huset åt -x)
   const addProp = (f, src, lx, lz, rot = 0) => {
     const o = src.clone(true);
@@ -643,9 +735,68 @@ export async function loadFarms(scene, colliders) {
     addCoop(f, hw - 4, hd - 4.5);
   }
 
+  /* ---------- Staden: hus man kan gå in i ---------- */
+  const rugMats = ['#e23b4e', '#3d6fb5', '#8a5cff', '#2fae6a'].map(c => new THREE.MeshLambertMaterial({ color: c }));
+  for (const H of TOWN.houses) {
+    const K = HOUSE_KITS[H.type], S = HOUSE_S;
+    const f = { x: H.x, z: H.z, h: TOWN.h, yaw: H.yaw };
+    const g = new THREE.Group();
+    g.position.set(f.x, f.h, f.z); g.rotation.y = f.yaw; scene.add(g);
+    const m = houseSrc[H.type - 1].clone(true);
+    m.scale.setScalar(S);
+    const mat = houseMaterial(H.color);
+    const doors = [];
+    m.traverse(o => { if (o.isMesh) o.material = mat; });
+    const [d0, d1] = K.door, [x0, x1, z0, z1] = K.walls;
+    const doorMesh = m.children.find(o => o.name === 'Door');
+    if (doorMesh) {
+      doorMesh.geometry = doorMesh.geometry.clone();
+      doorMesh.geometry.translate(-d0, 0, -z1);       // gångjärnet i origo
+      doorMesh.position.set(d0, 0, z1);
+      doorMesh.userData.hinge = [d0, z1, 1];           // svänger inåt
+      doors.push(doorMesh);
+    }
+    g.add(m);
+
+    // Väggar (kollision), dörröppning med egen låda
+    const T = 0.35, top = f.h + 6, W = v => v * S;
+    box(f, W((x0 + x1) / 2), W(z0) + T / 2, W(x1 - x0), T, top);                 // bak
+    box(f, W(x1) - T / 2, W((z0 + z1) / 2), T, W(z1 - z0), top);                 // höger
+    if (K.garage) box(f, W((K.garage[0] + K.garage[1]) / 2), W((z0 + z1) / 2), W(K.garage[1] - K.garage[0]), W(z1 - z0), top);   // garaget
+    else box(f, W(x0) + T / 2, W((z0 + z1) / 2), T, W(z1 - z0), top);            // vänster
+    const fz = W(z1) - T / 2;
+    box(f, W((x0 + d0) / 2), fz, W(d0 - x0), T, top);
+    box(f, W((d1 + x1) / 2), fz, W(x1 - d1), T, top);
+    const doorCol = box(f, W((d0 + d1) / 2), fz, W(d1 - d0), T, top, { active: true });
+    if (K.posts) for (const [px, pz] of K.posts) { const [wx, wz] = toWorld(f, W(px), W(pz)); colliders.push({ x: wx, z: wz, r: 0.25 }); }
+    if (K.porch) {
+      const a = toWorld(f, W(K.porch.x[0]), W(K.porch.z[0])), c = toWorld(f, W(K.porch.x[1]), W(K.porch.z[1]));
+      platforms.push({ minX: Math.min(a[0], c[0]), maxX: Math.max(a[0], c[0]), minZ: Math.min(a[1], c[1]), maxZ: Math.max(a[1], c[1]), y: f.h + W(K.porch.y) });
+    }
+
+    // Trägolv och en matta
+    const FY = W(K.floor) + 0.02, fw = W(x1 - x0) - 0.4, fd = W(z1 - z0) - 0.4;
+    const ft = plankTex.clone(); ft.needsUpdate = true; ft.repeat.set(fw / 4, fd / 4);
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(fw, fd), new THREE.MeshLambertMaterial({ map: ft }));
+    floor.rotation.x = -Math.PI / 2; floor.position.set(W((x0 + x1) / 2), FY, W((z0 + z1) / 2)); floor.receiveShadow = true;
+    g.add(floor);
+    const rug = new THREE.Mesh(new THREE.PlaneGeometry(Math.min(3.2, fw * 0.5), Math.min(2.2, fd * 0.4)), rugMats[H.color % rugMats.length]);
+    rug.rotation.x = -Math.PI / 2; rug.position.set(W((x0 + x1) / 2), FY + 0.01, W((z0 + z1) / 2) - 0.5);
+    g.add(rug);
+
+    const [dx, dz] = toWorld(f, W((d0 + d1) / 2), W(z1) + 1.2);
+    const a = toWorld(f, W(x0), W(z0)), c = toWorld(f, W(x1), W(z1));
+    const inner = { minX: Math.min(a[0], c[0]) + 0.2, maxX: Math.max(a[0], c[0]) - 0.2, minZ: Math.min(a[1], c[1]) + 0.2, maxZ: Math.max(a[1], c[1]) - 0.2 };
+    barns.push({
+      kind: 'house', doors, doorCollider: doorCol, door: { x: dx, z: dz }, inner, roof: f.h + W(0.62), floorY: f.h + W(K.floor),
+      open: false, t: 0, toggle() { this.open = !this.open; }
+    });
+  }
+
   const ease = t => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
   return {
-    barns,
+    barns, platforms,
+    platformAt(x, z) { let y = -Infinity; for (const p of platforms) if (x > p.minX && x < p.maxX && z > p.minZ && z < p.maxZ && p.y > y) y = p.y; return y; },
     update(t, dt) {
       for (const s of spinners) s.rotation.z -= dt * 0.9;
       for (const b of barns) {
