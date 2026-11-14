@@ -31,7 +31,10 @@ const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 1400);
 
 const world = buildWorld(scene, { lowSpec: touch });
 let farms = null;
-loadFarms(scene, world.colliders).then(f => { farms = f; return spawnChests(f.chestSpots); }).catch(e => console.error('Gårdar', e));
+loadFarms(scene, world.colliders).then(f => { farms = f; return spawnChests(f.chestSpots); })
+  .then(() => import('./animals.js')).then(m => m.spawnAnimals(scene, world)).then(a => { animals = a; })
+  .catch(e => console.error('Gårdar/djur', e));
+let animals = null;
 
 /* ---------- Skattkistor: 10 st på slumpade platser av 100 möjliga ---------- */
 const CHESTS = 10, chests = [];
@@ -576,6 +579,7 @@ function update(dt) {
   { let best = 2.3; for (const c of chests) { if (c.open) continue; const dd = Math.hypot(P.x - c.x, P.z - c.z); if (dd < best && Math.abs(P.y - c.y) < 1.6) { best = dd; nearChest = c; } } }
   const now = performance.now() / 1000;
   updateChests(dt, now);
+  if (animals) animals.update(dt, P, camera.position);
 
   // Hugga träd med yxan / gräva med spaden (håll E i några sekunder)
   let act = null;
@@ -668,4 +672,4 @@ function loop() {
 loop();
 
 // För test: Jakt.teleport(x, z)
-window.Jakt = { P, chests, digs, openChest, world, get ch() { return ch; }, set timeLeft(v) { timeLeft = v; }, get timeLeft() { return timeLeft; }, step(n = 1, dt = 1 / 60) { for (let i = 0; i < n; i++) { update(dt); if (farms) farms.update(0, dt); } }, get farms() { return farms; }, get cam() { return camera.position.toArray(); }, teleport(x, z) { P.x = x; P.z = z; P.y = groundAt(x, z); P.vy = 0; P.grounded = true; }, get yaw() { return yaw; }, set yaw(v) { yaw = v; }, set pitch(v) { pitch = v; }, set dist(v) { dist = v; }, keys };
+window.Jakt = { get animals() { return animals; }, P, chests, digs, openChest, world, get ch() { return ch; }, set timeLeft(v) { timeLeft = v; }, get timeLeft() { return timeLeft; }, step(n = 1, dt = 1 / 60) { for (let i = 0; i < n; i++) { update(dt); if (farms) farms.update(0, dt); } }, get farms() { return farms; }, get cam() { return camera.position.toArray(); }, teleport(x, z) { P.x = x; P.z = z; P.y = groundAt(x, z); P.vy = 0; P.grounded = true; }, get yaw() { return yaw; }, set yaw(v) { yaw = v; }, set pitch(v) { pitch = v; }, set dist(v) { dist = v; }, keys };
